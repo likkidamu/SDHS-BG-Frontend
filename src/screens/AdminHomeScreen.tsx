@@ -69,6 +69,14 @@ export default function AdminHomeScreen({ navigation }: Props) {
       iconColor: '#fff',
       onPress: () => navigation.navigate('AdminAttendanceConfig'),
     },
+    {
+      title: 'Reports',
+      description: 'Teachers & students reports',
+      iconLabel: '📋',
+      iconBg: colors.purple,
+      iconColor: '#fff',
+      onPress: () => navigation.navigate('AdminReports'),
+    },
   ];
 
   return (

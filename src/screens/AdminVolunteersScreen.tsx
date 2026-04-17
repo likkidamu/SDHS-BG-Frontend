@@ -15,6 +15,7 @@ interface Volunteer {
   volunteerId: string;
   name: string;
   groupId: string;
+  groupName: string;
   enrollmentType: string;
   trackType: string;
   status: string;
@@ -24,17 +25,85 @@ interface Volunteer {
   phoneNumber: string;
 }
 
-const ENROLLMENT_TYPES = ['S', 'T', 'A'];
 const TRACK_TYPES = ['MEM', 'FLUENT'];
-const STATUS_OPTS = ['ACTIVE', 'DROPPED'];
+
+const TYPE_OPTIONS = [
+  { key: 'S', label: 'Student' },
+  { key: 'T', label: 'Teacher' },
+  { key: 'A', label: 'Admin' },
+];
+
+const STATUS_OPTIONS = [
+  { key: 'ACTIVE', label: 'Active' },
+  { key: 'INACTIVE', label: 'Inactive' },
+  { key: 'DROPPED', label: 'Dropped' },
+];
+
+// ── Multi-select dropdown ────────────────────────────────────────────────────
+interface MultiSelectProps {
+  label: string;
+  options: { key: string; label: string }[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}
+
+function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (key: string) => {
+    onChange(selected.includes(key) ? selected.filter(k => k !== key) : [...selected, key]);
+  };
+
+  const displayLabel = selected.length === 0 || selected.length === options.length
+    ? `All`
+    : selected.map(k => options.find(o => o.key === k)?.label ?? k).join(', ');
+
+  return (
+    <>
+      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(true)} activeOpacity={0.8}>
+        <Text style={styles.ddTriggerText} numberOfLines={1}>{displayLabel}</Text>
+        <Text style={styles.ddArrow}>▾</Text>
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={styles.ddOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
+          <View style={styles.ddSheet} onStartShouldSetResponder={() => true}>
+            <Text style={styles.ddSheetTitle}>{label}</Text>
+            {options.map(opt => {
+              const checked = selected.includes(opt.key);
+              return (
+                <TouchableOpacity key={opt.key} style={styles.ddRow} onPress={() => toggle(opt.key)}>
+                  <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                    {checked && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.ddRowLabel}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <View style={styles.ddActions}>
+              <TouchableOpacity style={styles.ddClear} onPress={() => onChange([])}>
+                <Text style={styles.ddClearText}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ddDone} onPress={() => setOpen(false)}>
+                <Text style={styles.ddDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminVolunteersScreen({ navigation }: Props) {
   const { logout } = useAuth();
-  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [allVolunteers, setAllVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [editModal, setEditModal] = useState(false);
   const [dropModal, setDropModal] = useState(false);
   const [selected, setSelected] = useState<Volunteer | null>(null);
@@ -46,19 +115,25 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
     try {
       setLoading(true);
       setError('');
-      const params: any = {};
-      if (search.trim()) params.q = search.trim();
-      if (filterStatus) params.status = filterStatus;
-      const res = await api.get('/admin/volunteers', { params });
-      setVolunteers(res.data.volunteers || []);
+      const res = await api.get('/admin/volunteers');
+      setAllVolunteers(res.data.volunteers || []);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load volunteers');
     } finally {
       setLoading(false);
     }
-  }, [search, filterStatus]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Client-side filtering
+  const volunteers = allVolunteers.filter(v => {
+    const q = search.trim().toLowerCase();
+    if (q && !v.name?.toLowerCase().includes(q) && !v.volunteerId?.toLowerCase().includes(q)) return false;
+    if (filterTypes.length > 0 && !filterTypes.includes(v.enrollmentType)) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(v.status)) return false;
+    return true;
+  });
 
   const openEdit = (v: Volunteer) => {
     setSelected(v);
@@ -93,9 +168,10 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
   };
 
   const reactivate = async (v: Volunteer) => {
-    Alert.alert('Reactivate', `Reactivate ${v.name}?`, [
+    const label = v.status === 'INACTIVE' ? 'Activate' : 'Reactivate';
+    Alert.alert(label, `${label} ${v.name}?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reactivate', onPress: async () => {
+      { text: label, onPress: async () => {
         try {
           await api.post(`/admin/volunteers/${v.volunteerId}/reactivate`);
           load();
@@ -113,13 +189,32 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
       <TopNavbar title="Manage Volunteers" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
 
       <View style={styles.filterRow}>
-        <TextInput style={styles.searchInput} placeholder="Search name / VID…" value={search} onChangeText={setSearch} onSubmitEditing={load} returnKeyType="search" />
-        <View style={styles.statusRow}>
-          {['', ...STATUS_OPTS].map(s => (
-            <TouchableOpacity key={s} style={[styles.chip, filterStatus === s && styles.chipActive]} onPress={() => setFilterStatus(s)}>
-              <Text style={[styles.chipText, filterStatus === s && styles.chipTextActive]}>{s || 'All'}</Text>
-            </TouchableOpacity>
-          ))}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search name / VID…"
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
+        <View style={styles.dropdownRow}>
+          <View style={styles.dropdownWrap}>
+            <Text style={styles.dropdownLabel}>ENROLLMENT TYPE</Text>
+            <MultiSelect
+              label="Enrollment Type"
+              options={TYPE_OPTIONS}
+              selected={filterTypes}
+              onChange={setFilterTypes}
+            />
+          </View>
+          <View style={styles.dropdownWrap}>
+            <Text style={styles.dropdownLabel}>STATUS</Text>
+            <MultiSelect
+              label="Status"
+              options={STATUS_OPTIONS}
+              selected={filterStatuses}
+              onChange={setFilterStatuses}
+            />
+          </View>
         </View>
       </View>
 
@@ -129,17 +224,17 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
         <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity onPress={load}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          <Text style={styles.countText}>{volunteers.length} volunteers</Text>
+          <Text style={styles.countText}>{volunteers.length} of {allVolunteers.length} volunteers</Text>
           {volunteers.map(v => (
             <View key={v.volunteerId} style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{v.name}</Text>
                   <Text style={styles.vid}>{v.volunteerId} • {v.enrollmentType} • {v.trackType}</Text>
-                  {v.groupId ? <Text style={styles.meta}>Group: {v.groupId}</Text> : null}
+                  {v.groupId ? <Text style={styles.meta}>Group: {v.groupName || v.groupId}</Text> : null}
                 </View>
-                <View style={[styles.badge, { backgroundColor: v.status === 'ACTIVE' ? colors.successBg : colors.errorBg }]}>
-                  <Text style={[styles.badgeText, { color: v.status === 'ACTIVE' ? colors.successText : colors.errorText }]}>{v.status}</Text>
+                <View style={[styles.badge, v.status === 'ACTIVE' ? styles.badgeActive : v.status === 'INACTIVE' ? styles.badgeInactive : styles.badgeDropped]}>
+                  <Text style={[styles.badgeText, v.status === 'ACTIVE' ? styles.badgeTextActive : v.status === 'INACTIVE' ? styles.badgeTextInactive : styles.badgeTextDropped]}>{v.status}</Text>
                 </View>
               </View>
               {v.statusReason ? <Text style={styles.reason}>Reason: {v.statusReason}</Text> : null}
@@ -153,6 +248,10 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
                 {v.status === 'ACTIVE' ? (
                   <TouchableOpacity style={[styles.btn, { backgroundColor: colors.maroon }]} onPress={() => openDrop(v)}>
                     <Text style={styles.btnText}>Drop</Text>
+                  </TouchableOpacity>
+                ) : v.status === 'INACTIVE' ? (
+                  <TouchableOpacity style={[styles.btn, { backgroundColor: colors.teal }]} onPress={() => reactivate(v)}>
+                    <Text style={styles.btnText}>Activate</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity style={[styles.btn, { backgroundColor: colors.teal }]} onPress={() => reactivate(v)}>
@@ -232,13 +331,35 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   errorText: { color: colors.errorText, fontSize: 14, textAlign: 'center' },
   retryText: { color: colors.navy, marginTop: 12, ...fonts.semiBold },
-  filterRow: { backgroundColor: colors.white, padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+
+  // Filter bar
+  filterRow: { backgroundColor: colors.white, padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight, gap: 10 },
   searchInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, padding: spacing.sm, fontSize: 14, backgroundColor: colors.bg },
-  statusRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.borderLight },
-  chipActive: { backgroundColor: colors.navy, borderColor: colors.navy },
-  chipText: { fontSize: 12, color: colors.textMuted, ...fonts.medium },
-  chipTextActive: { color: '#fff' },
+  dropdownRow: { flexDirection: 'row', gap: 10 },
+  dropdownWrap: { flex: 1, gap: 4 },
+  dropdownLabel: { fontSize: 10, color: colors.textMuted, ...fonts.semiBold, letterSpacing: 0.8 },
+
+  // Dropdown trigger
+  ddTrigger: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.bg },
+  ddTriggerText: { flex: 1, fontSize: 13, color: colors.textDark, ...fonts.medium },
+  ddArrow: { fontSize: 12, color: colors.textMuted, marginLeft: 4 },
+
+  // Dropdown sheet
+  ddOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 40 },
+  ddSheet: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.lg },
+  ddSheetTitle: { fontSize: 15, color: colors.textDark, ...fonts.bold, marginBottom: 12 },
+  ddRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 },
+  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: colors.navy, borderColor: colors.navy },
+  checkmark: { color: '#fff', fontSize: 12, ...fonts.bold },
+  ddRowLabel: { fontSize: 14, color: colors.textDark },
+  ddActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  ddClear: { flex: 1, paddingVertical: 10, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.borderLight, alignItems: 'center' },
+  ddClearText: { fontSize: 13, color: colors.textMuted, ...fonts.semiBold },
+  ddDone: { flex: 2, paddingVertical: 10, borderRadius: borderRadius.md, backgroundColor: colors.navy, alignItems: 'center' },
+  ddDoneText: { fontSize: 13, color: '#fff', ...fonts.semiBold },
+
+  // List
   list: { padding: spacing.md, gap: spacing.sm },
   countText: { fontSize: 12, color: colors.textMuted, marginBottom: 4, ...fonts.medium },
   card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.card },
@@ -248,10 +369,18 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12, color: colors.textBody, marginTop: 2 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.sm },
   badgeText: { fontSize: 11, ...fonts.bold },
+  badgeActive: { backgroundColor: colors.successBg },
+  badgeInactive: { backgroundColor: '#e5e7eb' },
+  badgeDropped: { backgroundColor: colors.errorBg },
+  badgeTextActive: { color: colors.successText },
+  badgeTextInactive: { color: '#6b7280' },
+  badgeTextDropped: { color: colors.errorText },
   reason: { fontSize: 12, color: colors.warningText, marginTop: 6 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   btn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.sm },
   btnText: { color: '#fff', fontSize: 12, ...fonts.semiBold },
+
+  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, maxHeight: '90%' },
   modalTitle: { fontSize: 18, color: colors.textDark, ...fonts.bold, marginBottom: 12 },

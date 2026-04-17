@@ -20,7 +20,7 @@ export default function TopNavbar({ title, actions = [] }: Props) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.navy} />
       <View style={styles.inner}>
-        <Text style={styles.brand}>{title}</Text>
+        <Text style={styles.brand} numberOfLines={2}>{title}</Text>
         <View style={styles.actions}>
           {actions.map((action, i) => (
             <TouchableOpacity
@@ -59,6 +59,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
     ...fonts.extraBold,
     letterSpacing: -0.3,
+    flex: 1,
+    marginRight: 12,
   },
   actions: {
     flexDirection: 'row',

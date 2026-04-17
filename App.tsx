@@ -24,6 +24,8 @@ import AdminTeacherAvailabilityScreen from './src/screens/AdminTeacherAvailabili
 import AdminBulkBookingScreen from './src/screens/AdminBulkBookingScreen';
 import AdminTeachersDashboardScreen from './src/screens/AdminTeachersDashboardScreen';
 import AdminAttendanceConfigScreen from './src/screens/AdminAttendanceConfigScreen';
+import AdminReportsScreen from './src/screens/AdminReportsScreen';
+import AdminGroupDetailScreen from './src/screens/AdminGroupDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -69,6 +71,8 @@ function AppNavigator() {
         <Stack.Screen name="AdminVolunteers" component={AdminVolunteersScreen} />
         <Stack.Screen name="AdminVolunteerAnalytics" component={AdminVolunteerAnalyticsScreen} />
         <Stack.Screen name="AdminAttendanceConfig" component={AdminAttendanceConfigScreen} />
+        <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
+        <Stack.Screen name="AdminGroupDetail" component={AdminGroupDetailScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     );

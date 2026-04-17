@@ -11,7 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
-interface GroupConfig { groupId: string; startDate: string; endDate: string; status: string; }
+interface GroupConfig { groupId: string; groupName: string; startDate: string; endDate: string; status: string; }
 
 const STATUS_OPTS = ['ACTIVE', 'COMPLETED'];
 
@@ -22,7 +22,7 @@ export default function AdminAttendanceConfigScreen({ navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [newGroup, setNewGroup] = useState({ groupId: '', startDate: '' });
+  const [newGroup, setNewGroup] = useState({ groupId: '', groupName: '', startDate: '' });
 
   const load = useCallback(async () => {
     try {
@@ -43,14 +43,14 @@ export default function AdminAttendanceConfigScreen({ navigation }: Props) {
   const save = async () => {
     const toSave = [...groups];
     if (newGroup.groupId.trim() && newGroup.startDate.trim()) {
-      toSave.push({ groupId: newGroup.groupId.trim(), startDate: newGroup.startDate.trim(), endDate: '', status: 'ACTIVE' });
+      toSave.push({ groupId: newGroup.groupId.trim(), groupName: newGroup.groupName.trim(), startDate: newGroup.startDate.trim(), endDate: '', status: 'ACTIVE' });
     }
     if (toSave.length === 0) { Alert.alert('Nothing to save'); return; }
     setSaving(true); setError(''); setSuccess('');
     try {
       await api.post('/admin/attendance-config/save', { groups: toSave });
       setSuccess('Saved successfully.');
-      setNewGroup({ groupId: '', startDate: '' });
+      setNewGroup({ groupId: '', groupName: '', startDate: '' });
       load();
     } catch (e: any) {
       setError(e.response?.data?.error || 'Save failed');
@@ -79,6 +79,16 @@ export default function AdminAttendanceConfigScreen({ navigation }: Props) {
                 <View style={[styles.badge, { backgroundColor: g.status === 'ACTIVE' ? colors.successBg : colors.bg }]}>
                   <Text style={[styles.badgeText, { color: g.status === 'ACTIVE' ? colors.successText : colors.textMuted }]}>{g.status}</Text>
                 </View>
+              </View>
+
+              <View>
+                <Text style={styles.fieldLabel}>Group Name</Text>
+                <TextInput
+                  style={styles.dateInput}
+                  value={g.groupName || ''}
+                  onChangeText={v => updateGroup(idx, 'groupName', v)}
+                  placeholder="e.g. SDHS BG BATCH 3"
+                />
               </View>
 
               <View style={styles.datesRow}>
@@ -114,6 +124,10 @@ export default function AdminAttendanceConfigScreen({ navigation }: Props) {
                 <Text style={styles.fieldLabel}>Start Date</Text>
                 <TextInput style={styles.dateInput} value={newGroup.startDate} onChangeText={v => setNewGroup(n => ({ ...n, startDate: v }))} placeholder="YYYY-MM-DD" />
               </View>
+            </View>
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.fieldLabel}>Group Name</Text>
+              <TextInput style={styles.dateInput} value={newGroup.groupName} onChangeText={v => setNewGroup(n => ({ ...n, groupName: v }))} placeholder="e.g. SDHS BG BATCH 3" />
             </View>
           </View>
 
