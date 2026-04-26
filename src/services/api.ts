@@ -2,7 +2,7 @@ import axios from 'axios';
 import storage from './storage';
 
 const API_BASE_URL = __DEV__
-  ? 'http://10.0.0.232:8080/api/v1'   // Your laptop's local IP — phone and laptop must be on same WiFi
+  ? 'http://192.168.1.194:8080/api/v1'   // Your laptop's local IP — phone and laptop must be on same WiFi
   : 'https://your-render-app.onrender.com/api/v1'; // TODO: update with actual Render URL
 
 const api = axios.create({
