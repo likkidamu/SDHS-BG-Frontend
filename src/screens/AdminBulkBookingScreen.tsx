@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Alert,
+  TouchableOpacity, ActivityIndicator, Alert, FlatList,
 } from 'react-native';
 import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
@@ -16,7 +16,16 @@ interface SlotOption { id: number; name: string; }
 interface ChapterOption { id: number; chapterNumber: number; chapterName: string; allowedSlokas: string; }
 interface Booking { id: number; volunteerId: string; studentName: string; slotId: number; slotName: string; chapterId: number; chapterNumber: number; chapterName: string; slokaCount: number; assignedTeacherName: string; }
 
-interface BookingEntry { volunteerId: string; studentName: string; slotId: string; chapterId: string; slokaCount: string; }
+interface BookingEntry {
+  volunteerId: string;
+  studentName: string;
+  slotId: string;
+  chapterId: string;
+  slokaCount: string;
+  loadedSlokas: number[];
+  minNext: number | null;
+  slokaLoading: boolean;
+}
 
 function nextSunday() {
   const d = new Date();
@@ -24,7 +33,76 @@ function nextSunday() {
   return d.toISOString().split('T')[0];
 }
 
-const emptyEntry = (): BookingEntry => ({ volunteerId: '', studentName: '', slotId: '', chapterId: '', slokaCount: '' });
+const emptyEntry = (): BookingEntry => ({
+  volunteerId: '', studentName: '', slotId: '', chapterId: '', slokaCount: '',
+  loadedSlokas: [], minNext: null, slokaLoading: false,
+});
+
+// ---- Student autocomplete ----
+function StudentAutocomplete({
+  value, students, onSelect,
+}: {
+  value: string;
+  students: StudentOption[];
+  onSelect: (s: StudentOption) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const suggestions = query.length >= 1
+    ? students.filter(s =>
+        s.volunteerId.toUpperCase().includes(query.toUpperCase()) ||
+        s.name.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  return (
+    <View style={{ position: 'relative', zIndex: 10 }}>
+      <TextInput
+        style={styles.fieldInput}
+        value={query}
+        onChangeText={v => { setQuery(v.toUpperCase()); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        autoCapitalize="characters"
+        placeholder="Type VID or name…"
+        returnKeyType="done"
+        onSubmitEditing={() => setOpen(false)}
+      />
+      {open && suggestions.length > 0 && (
+        <View style={ac.dropdown}>
+          {suggestions.map(s => (
+            <TouchableOpacity
+              key={s.volunteerId}
+              style={ac.item}
+              onPress={() => { onSelect(s); setQuery(s.volunteerId); setOpen(false); }}
+            >
+              <Text style={ac.vid}>{s.volunteerId}</Text>
+              <Text style={ac.name}>{s.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const ac = StyleSheet.create({
+  dropdown: {
+    position: 'absolute', top: 40, left: 0, right: 0, zIndex: 999,
+    backgroundColor: colors.white, borderRadius: borderRadius.md,
+    borderWidth: 1, borderColor: colors.borderLight,
+    ...shadows.card, overflow: 'hidden',
+  },
+  item: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  },
+  vid: { fontSize: 12, ...fonts.bold, color: colors.navy, minWidth: 72 },
+  name: { fontSize: 13, ...fonts.regular, color: colors.textBody, flex: 1 },
+});
 
 export default function AdminBulkBookingScreen({ navigation }: Props) {
   const { logout } = useAuth();
@@ -48,6 +126,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       setSlots(res.data.slots || []);
       setChapters(res.data.chapters || []);
       setBookings(res.data.bookings || []);
+      setEntries([emptyEntry()]);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load');
     } finally { setLoading(false); }
@@ -55,21 +134,40 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateEntry = (idx: number, field: keyof BookingEntry, val: string) => {
-    setEntries(es => es.map((e, i) => i === idx ? { ...e, [field]: val } : e));
+  const updateEntry = (idx: number, patch: Partial<BookingEntry>) => {
+    setEntries(es => es.map((e, i) => i === idx ? { ...e, ...patch } : e));
   };
 
-  // Auto-fill student name when VID typed
-  const onVidChange = (idx: number, val: string) => {
-    updateEntry(idx, 'volunteerId', val.toUpperCase());
-    const found = students.find(s => s.volunteerId.toUpperCase() === val.toUpperCase());
-    if (found) updateEntry(idx, 'studentName', found.name);
+  const fetchSlokas = async (idx: number, volunteerId: string, chapterId: string) => {
+    if (!volunteerId || !chapterId) {
+      updateEntry(idx, { loadedSlokas: [], minNext: null });
+      return;
+    }
+    updateEntry(idx, { slokaLoading: true, loadedSlokas: [], slokaCount: '' });
+    try {
+      const res = await api.get('/admin/allowed-slokas', {
+        params: { volunteerId, date, chapterId: parseInt(chapterId) },
+      });
+      updateEntry(idx, {
+        loadedSlokas: res.data.allowed ?? [],
+        minNext: res.data.minNext ?? null,
+        slokaLoading: false,
+      });
+    } catch {
+      updateEntry(idx, { slokaLoading: false, loadedSlokas: [], minNext: null });
+    }
   };
 
-  const allowedSlokas = (chapterId: string): number[] => {
-    const c = chapters.find(ch => ch.id === parseInt(chapterId));
-    if (!c || !c.allowedSlokas) return [];
-    return c.allowedSlokas.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)).sort((a, b) => a - b);
+  const onStudentSelect = (idx: number, s: StudentOption) => {
+    const entry = entries[idx];
+    updateEntry(idx, { volunteerId: s.volunteerId, studentName: s.name });
+    if (entry.chapterId) fetchSlokas(idx, s.volunteerId, entry.chapterId);
+  };
+
+  const onChapterSelect = (idx: number, chapterId: string) => {
+    const entry = entries[idx];
+    updateEntry(idx, { chapterId, slokaCount: '' });
+    if (entry.volunteerId) fetchSlokas(idx, entry.volunteerId, chapterId);
   };
 
   const save = async () => {
@@ -104,7 +202,10 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <TopNavbar title="Student Slot Booking" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+      <TopNavbar
+        title="Student Slot Booking"
+        actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]}
+      />
 
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Date</Text>
@@ -118,58 +219,89 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
 
           {/* Add Form */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Add Bookings</Text>
             {entries.map((entry, idx) => (
               <View key={idx} style={styles.entryCard}>
-                <View style={styles.entryRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>Student VID</Text>
-                    <TextInput style={styles.fieldInput} value={entry.volunteerId} onChangeText={v => onVidChange(idx, v)} autoCapitalize="characters" placeholder="VID" />
-                  </View>
-                  <View style={{ flex: 2, marginLeft: 8 }}>
-                    <Text style={styles.fieldLabel}>Name</Text>
-                    <TextInput style={styles.fieldInput} value={entry.studentName} onChangeText={v => updateEntry(idx, 'studentName', v)} placeholder="Student name" />
-                  </View>
-                </View>
 
-                <Text style={styles.fieldLabel}>Slot</Text>
+                {/* Student search */}
+                <Text style={styles.fieldLabel}>Student (VID or Name)</Text>
+                <StudentAutocomplete
+                  value={entry.volunteerId}
+                  students={students}
+                  onSelect={s => onStudentSelect(idx, s)}
+                />
+                {entry.studentName ? (
+                  <Text style={styles.resolvedName}>{entry.studentName}</Text>
+                ) : null}
+
+                {/* Slot */}
+                <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Slot</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   <View style={styles.chipRow}>
                     {slots.map(s => (
-                      <TouchableOpacity key={s.id} style={[styles.chip, entry.slotId === String(s.id) && styles.chipActive]} onPress={() => updateEntry(idx, 'slotId', String(s.id))}>
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.chip, entry.slotId === String(s.id) && styles.chipActive]}
+                        onPress={() => updateEntry(idx, { slotId: String(s.id) })}
+                      >
                         <Text style={[styles.chipText, entry.slotId === String(s.id) && styles.chipTextActive]}>{s.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
 
+                {/* Chapter */}
                 <Text style={styles.fieldLabel}>Chapter</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   <View style={styles.chipRow}>
                     {chapters.map(c => (
-                      <TouchableOpacity key={c.id} style={[styles.chip, entry.chapterId === String(c.id) && styles.chipActive]} onPress={() => { updateEntry(idx, 'chapterId', String(c.id)); updateEntry(idx, 'slokaCount', ''); }}>
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[styles.chip, entry.chapterId === String(c.id) && styles.chipActive]}
+                        onPress={() => onChapterSelect(idx, String(c.id))}
+                      >
                         <Text style={[styles.chipText, entry.chapterId === String(c.id) && styles.chipTextActive]}>Ch {c.chapterNumber}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
 
+                {/* Slokas */}
                 {entry.chapterId ? (
                   <>
-                    <Text style={styles.fieldLabel}>Slokas</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                      <View style={styles.chipRow}>
-                        {allowedSlokas(entry.chapterId).map(n => (
-                          <TouchableOpacity key={n} style={[styles.chip, entry.slokaCount === String(n) && styles.chipActive]} onPress={() => updateEntry(idx, 'slokaCount', String(n))}>
-                            <Text style={[styles.chipText, entry.slokaCount === String(n) && styles.chipTextActive]}>{n}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </ScrollView>
+                    <Text style={styles.fieldLabel}>Slokas (1–N)</Text>
+                    {entry.slokaLoading ? (
+                      <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start', marginBottom: 8 }} />
+                    ) : entry.loadedSlokas.length > 0 ? (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                        <View style={styles.chipRow}>
+                          {entry.loadedSlokas.map(n => {
+                            const disabled = entry.minNext !== null && n < entry.minNext;
+                            const active = entry.slokaCount === String(n);
+                            return (
+                              <TouchableOpacity
+                                key={n}
+                                style={[styles.chip, active && styles.chipActive, disabled && styles.chipDisabled]}
+                                onPress={() => !disabled && updateEntry(idx, { slokaCount: String(n) })}
+                                disabled={disabled}
+                              >
+                                <Text style={[styles.chipText, active && styles.chipTextActive, disabled && styles.chipTextDisabled]}>
+                                  1–{n}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
+                    ) : (
+                      <Text style={styles.noSlokasText}>
+                        {entry.volunteerId ? 'No slokas available (check syllabus for this date)' : 'Select a student first to load slokas'}
+                      </Text>
+                    )}
                   </>
                 ) : null}
 
@@ -199,15 +331,16 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bookingName}>{b.studentName}</Text>
                   <Text style={styles.bookingMeta}>{b.volunteerId} • {b.slotName}</Text>
-                  <Text style={styles.bookingMeta}>Ch {b.chapterNumber}: {b.chapterName} — {b.slokaCount} slokas</Text>
+                  <Text style={styles.bookingMeta}>Ch {b.chapterNumber}: {b.chapterName} — 1–{b.slokaCount}</Text>
                   {b.assignedTeacherName ? <Text style={styles.bookingMeta}>Teacher: {b.assignedTeacherName}</Text> : null}
                 </View>
-                <TouchableOpacity style={[styles.delBtn]} onPress={() => deleteBooking(b)}>
+                <TouchableOpacity style={styles.delBtn} onPress={() => deleteBooking(b)}>
                   <Text style={styles.delBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>
+
         </ScrollView>
       )}
     </View>
@@ -230,14 +363,17 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: 14, color: colors.textDark, ...fonts.bold, marginBottom: 4 },
   entryCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.card, gap: 4 },
-  entryRow: { flexDirection: 'row' },
   fieldLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 3, ...fonts.medium },
-  fieldInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.sm, padding: 8, fontSize: 13, marginBottom: 8 },
+  fieldInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.sm, padding: 8, fontSize: 13, marginBottom: 4 },
+  resolvedName: { fontSize: 12, color: colors.primary, ...fonts.semiBold, marginBottom: 6 },
   chipRow: { flexDirection: 'row', gap: 6 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.borderLight },
   chipActive: { backgroundColor: colors.navy, borderColor: colors.navy },
+  chipDisabled: { backgroundColor: colors.bg, borderColor: colors.borderLight, opacity: 0.4 },
   chipText: { fontSize: 12, color: colors.textBody },
   chipTextActive: { color: '#fff', ...fonts.semiBold },
+  chipTextDisabled: { color: colors.textMuted },
+  noSlokasText: { fontSize: 12, color: colors.textMuted, ...fonts.regular, marginBottom: 8, fontStyle: 'italic' },
   removeBtn: { alignSelf: 'flex-start', marginTop: 4 },
   removeBtnText: { fontSize: 12, color: colors.errorText },
   addRowBtn: { backgroundColor: colors.infoBg, borderWidth: 1, borderColor: colors.infoBorder, borderRadius: borderRadius.md, padding: 12, alignItems: 'center' },
