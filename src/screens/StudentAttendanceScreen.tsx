@@ -1,74 +1,100 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { TopNavbar, StatCard, ContentCard, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type AttendanceRecord = {
-  id: number;
-  present: boolean;
-  classDate: string;
-  groupId: number;
-  noClass: boolean;
-};
-
-type AttendanceData = {
-  volunteerId: string;
-  studentName: string;
-  groupId: number;
-  present: number;
-  total: number;
-  percent: string;
-  groupStartDate: string;
-  groupEndDate: string;
-  groupStatus: string;
-  history: AttendanceRecord[];
-};
+import { enrollmentProgram, enrollmentStatus, type LearningEnrollment, type ProgramType } from '../features/enrollment/models';
+import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollmentContext';
+import { getLearningEnrollments } from '../features/enrollment/service';
+import type { StudentAttendanceRecord, StudentAttendanceResponse } from '../features/student/attendance/models';
+import { getStudentAttendance } from '../features/student/attendance/service';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
+const PROGRAM_LABELS: Record<ProgramType, string> = {
+  MEMORIZATION: 'Memorization',
+  REVISION: 'Revision',
+  FLUENT: 'Fluent Reading',
+};
+
+function getEnrollmentId(enrollment: LearningEnrollment) {
+  return enrollment.enrollmentId ?? enrollment.id;
+}
+
+function apiErrorMessage(error: any, fallback: string) {
+  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
+}
+
+function isUnavailableEnrollmentError(error: any) {
+  return error.response?.status === 403
+    && error.response?.data?.error === 'The selected learning enrollment is unavailable.';
+}
+
 export default function StudentAttendanceScreen({ navigation }: Props) {
-  const { user, logout } = useAuth();
-  const [data, setData] = useState<AttendanceData | null>(null);
+  const { logout } = useAuth();
+  const { selectedEnrollment, clearSelectedEnrollment } = useSelectedEnrollment();
+  const [data, setData] = useState<StudentAttendanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchAttendance();
-  }, []);
+  const returnToMyLearning = useCallback(() => {
+    clearSelectedEnrollment();
+    navigation.replace('MyLearning');
+  }, [clearSelectedEnrollment, navigation]);
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
+    if (!selectedEnrollment) {
+      navigation.replace('MyLearning');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/student/attendance');
-      setData(res.data);
+      const selectedId = getEnrollmentId(selectedEnrollment);
+      const enrollments = await getLearningEnrollments();
+      const currentEnrollment = enrollments.find(
+        (enrollment) => getEnrollmentId(enrollment) === selectedId,
+      );
+      if (!currentEnrollment || enrollmentStatus(currentEnrollment) !== 'ACTIVE') {
+        returnToMyLearning();
+        return;
+      }
+      setData(await getStudentAttendance(selectedId));
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Failed to load attendance data');
+      if (isUnavailableEnrollmentError(e)) {
+        returnToMyLearning();
+        return;
+      }
+      setError(apiErrorMessage(e, 'Failed to load attendance data.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigation, returnToMyLearning, selectedEnrollment]);
 
-  const formatDate = (dateStr: string): string => {
+  useEffect(() => {
+    void fetchAttendance();
+  }, [fetchAttendance]);
+
+  const formatDate = (dateStr?: string | null): string => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = new Date(`${dateStr}T00:00:00Z`);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+      timeZone: 'UTC',
     });
   };
 
-  const getStatusBadge = (record: AttendanceRecord) => {
+  const getStatusBadge = (record: StudentAttendanceRecord) => {
     if (record.noClass) {
       return { label: 'No Class', bg: '#fff3e0', text: '#e65100' };
     }
@@ -78,7 +104,7 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
     return { label: 'Absent', bg: '#ffebee', text: '#b71c1c' };
   };
 
-  const getGroupStatusColor = (status: string) => {
+  const getGroupStatusColor = (status?: string | null) => {
     switch (status?.toLowerCase()) {
       case 'active':
         return { bg: '#e8f5e9', text: '#1b5e20' };
@@ -119,12 +145,19 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
         />
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => void fetchAttendance()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  const statusColor = getGroupStatusColor(data?.groupStatus || '');
+  const statusColor = getGroupStatusColor(data?.groupStatus);
+  const selectedProgram = selectedEnrollment ? enrollmentProgram(selectedEnrollment) : null;
+  const selectedGroup = selectedEnrollment?.groupName?.trim() || selectedEnrollment?.groupId?.trim();
+  const selectedTeacher = selectedEnrollment?.teacherName?.trim();
+  const selectedCenter = selectedEnrollment?.centerName?.trim();
 
   return (
     <View style={styles.page}>
@@ -136,6 +169,15 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
         ]}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        {selectedProgram ? (
+          <ContentCard title="Current Learning">
+            <Text style={styles.currentProgram}>{PROGRAM_LABELS[selectedProgram]}</Text>
+            {selectedGroup ? <View style={styles.currentDetail}><Text style={styles.currentDetailLabel}>Group</Text><Text style={styles.currentDetailValue}>{selectedGroup}</Text></View> : null}
+            {selectedTeacher ? <View style={styles.currentDetail}><Text style={styles.currentDetailLabel}>Teacher</Text><Text style={styles.currentDetailValue}>{selectedTeacher}</Text></View> : null}
+            {selectedCenter ? <View style={styles.currentDetail}><Text style={styles.currentDetailLabel}>Center</Text><Text style={styles.currentDetailValue}>{selectedCenter}</Text></View> : null}
+          </ContentCard>
+        ) : null}
+
         {/* Info Card */}
         <View style={styles.infoCard}>
           <Text style={styles.studentName}>{data?.studentName}</Text>
@@ -143,18 +185,10 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
             <View style={styles.idBadge}>
               <Text style={styles.idBadgeText}>{data?.volunteerId}</Text>
             </View>
-            <View style={styles.idBadge}>
-              <Text style={styles.idBadgeText}>Group {data?.groupId}</Text>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}>
-              <Text style={[styles.statusBadgeText, { color: statusColor.text }]}>
-                {data?.groupStatus}
-              </Text>
-            </View>
+            {data?.groupId ? <View style={styles.idBadge}><Text style={styles.idBadgeText}>Group {data.groupId}</Text></View> : null}
+            {data?.groupStatus ? <View style={[styles.statusBadge, { backgroundColor: statusColor.bg }]}><Text style={[styles.statusBadgeText, { color: statusColor.text }]}>{data.groupStatus}</Text></View> : null}
           </View>
-          <Text style={styles.dateRange}>
-            {formatDate(data?.groupStartDate || '')} - {formatDate(data?.groupEndDate || '')}
-          </Text>
+          {data?.groupStartDate || data?.groupEndDate ? <Text style={styles.dateRange}>{formatDate(data?.groupStartDate)} - {formatDate(data?.groupEndDate)}</Text> : null}
         </View>
 
         {/* Stat Cards Row */}
@@ -206,7 +240,7 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
                 >
                   <View style={styles.historyLeft}>
                     <Text style={styles.historyDate}>{formatDate(record.classDate)}</Text>
-                    <Text style={styles.historyGroup}>Group {record.groupId}</Text>
+                    <Text style={styles.historyGroup}>{record.groupId ? `Group ${record.groupId}` : '-'}</Text>
                   </View>
                   <View style={[styles.attendanceBadge, { backgroundColor: badge.bg }]}>
                     <Text style={[styles.attendanceBadgeText, { color: badge.text }]}>
@@ -217,7 +251,7 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
               );
             })
           ) : (
-            <Text style={styles.emptyText}>No attendance records found.</Text>
+            <Text style={styles.emptyText}>No attendance has been recorded yet. Records will appear after your teacher marks attendance for an eligible class date.</Text>
           )}
         </ContentCard>
 
@@ -262,6 +296,38 @@ const styles = StyleSheet.create({
     ...fonts.medium,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  retryButton: {
+    backgroundColor: colors.navy,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  retryButtonText: {
+    color: colors.white,
+    ...fonts.bold,
+  },
+  currentProgram: {
+    color: colors.primary,
+    fontSize: 15,
+    marginBottom: spacing.sm,
+    ...fonts.bold,
+  },
+  currentDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  currentDetailLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+  },
+  currentDetailValue: {
+    color: colors.textDark,
+    fontSize: 13,
+    textAlign: 'right',
+    ...fonts.semiBold,
   },
 
   // Info Card
