@@ -10,24 +10,18 @@ const gradeConfig: Record<string, { bg: string; color: string }> = {
   'A+': { bg: '#e8f5e9', color: '#1b5e20' },
   'A': { bg: '#e8f5e9', color: '#1b5e20' },
   'B': { bg: '#fff3e0', color: '#e65100' },
-  'C': { bg: '#fce4ec', color: '#c62828' },
+  'C': { bg: '#fff3e0', color: '#e65100' },
   'Retest': { bg: '#ffebee', color: '#b71c1c' },
+  'Pending': { bg: '#ffebee', color: '#b71c1c' },
 };
 
 export default function GradeBadge({ grade }: Props) {
-  if (!grade) {
-    return (
-      <View style={[styles.badge, { backgroundColor: '#f5f0eb' }]}>
-        <Text style={[styles.text, { color: '#999' }]}>-</Text>
-      </View>
-    );
-  }
-
-  const config = gradeConfig[grade] || { bg: '#f5f0eb', color: '#999' };
+  const value = grade?.trim() || 'Pending';
+  const config = gradeConfig[value] || { bg: '#f5f0eb', color: '#999' };
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>
-      <Text style={[styles.text, { color: config.color }]}>{grade}</Text>
+      <Text style={[styles.text, { color: config.color }]}>{value}</Text>
     </View>
   );
 }
