@@ -17,7 +17,11 @@
       "bundleIdentifier": "com.sdhs.bgprogram",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "Allow SDHS BG Program to connect to the local development server."
       }
     },
     "android": {
