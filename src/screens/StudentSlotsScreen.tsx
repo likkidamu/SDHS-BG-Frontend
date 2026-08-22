@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   View,
   Text,
@@ -7,102 +8,161 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Modal,
-  FlatList,
 } from 'react-native';
 import { TopNavbar, AlertBox, ContentCard, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { enrollmentProgram, enrollmentStatus, type LearningEnrollment } from '../features/enrollment/models';
+import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollmentContext';
+import { getLearningEnrollments } from '../features/enrollment/service';
+import type {
+  BookStudentSlotRequest,
+  StudentChapter,
+  StudentSlotsResponse,
+} from '../features/student/booking/models';
+import {
+  bookStudentSlot,
+  cancelStudentBooking,
+  getStudentSlots,
+} from '../features/student/booking/service';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
-interface Slot {
-  id: number;
-  name: string;
-  duration: string;
-  availableCount: number;
+function getEnrollmentId(enrollment: LearningEnrollment) {
+  return enrollment.enrollmentId ?? enrollment.id;
 }
 
-interface Chapter {
-  id: number;
-  chapterNumber: number;
-  chapterName: string;
-  totalSlokas: number;
-  allowedSlokas?: number;
+function apiErrorMessage(error: any, fallback: string) {
+  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
-interface ExistingBooking {
-  id: number;
-  date: string;
-  cancelled: boolean;
-  slotId: number;
-  slotName: string;
-  chapterId: number;
-  chapterNumber: number;
-  chapterName: string;
-  slokaCount: number;
+function isUnavailableEnrollmentError(error: any) {
+  return error.response?.status === 403
+    && error.response?.data?.error === 'The selected learning enrollment is unavailable.';
 }
 
-interface SlotsData {
-  volunteerId: string;
-  studentName: string;
-  slotEligible: boolean;
-  bookingAllowed: boolean;
-  date: string;
-  formattedDate: string;
-  slots: Slot[];
-  chapters: Chapter[];
-  existingBookings: ExistingBooking[];
-  existingBookingsCount: number;
+function chapterReference(chapter: StudentChapter) {
+  return chapter.chapterName === 'Dhyana Slokas' || chapter.chapterName === 'Gita Mahatyam'
+    ? chapter.chapterName
+    : `Chapter ${chapter.chapterNumber}`;
+}
+
+function validateSlokaCount(chapter: StudentChapter, value: string) {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count <= 0) return 'Please enter a valid sloka count.';
+  if (chapter.allowedSlokas) {
+    const allowed = chapter.allowedSlokas.split(',').map((item) => Number(item.trim()));
+    if (!allowed.includes(count)) {
+      return `Allowed sloka counts for ${chapterReference(chapter)}: ${chapter.allowedSlokas}.`;
+    }
+  } else if (count > chapter.totalSlokas) {
+    return `Sloka count cannot exceed ${chapter.totalSlokas} for ${chapterReference(chapter)}.`;
+  }
+  return null;
 }
 
 export default function StudentSlotsScreen({ navigation }: Props) {
   const { logout } = useAuth();
+  const { selectedEnrollment, clearSelectedEnrollment } = useSelectedEnrollment();
 
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<SlotsData | null>(null);
+  const [data, setData] = useState<StudentSlotsResponse | null>(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Form state
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<StudentChapter | null>(null);
   const [slokaCount, setSlokaCount] = useState('');
   const [addSecondChapter, setAddSecondChapter] = useState(false);
-  const [selectedChapter2, setSelectedChapter2] = useState<Chapter | null>(null);
+  const [selectedChapter2, setSelectedChapter2] = useState<StudentChapter | null>(null);
   const [slokaCount2, setSlokaCount2] = useState('');
   const [booking, setBooking] = useState(false);
   const [cancelling, setCancelling] = useState<number | null>(null);
+  const bookingInFlight = useRef(false);
+  const cancellationInFlight = useRef(false);
 
   // Dropdown visibility
   const [chapterDropdownVisible, setChapterDropdownVisible] = useState(false);
   const [chapter2DropdownVisible, setChapter2DropdownVisible] = useState(false);
 
-  const fetchData = async () => {
+  const returnToMyLearning = useCallback(() => {
+    clearSelectedEnrollment();
+    navigation.replace('MyLearning');
+  }, [clearSelectedEnrollment, navigation]);
+
+  const fetchData = useCallback(async () => {
+    if (!selectedEnrollment) {
+      navigation.replace('MyLearning');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
-      const res = await api.get('/student/slots');
-      setData(res.data);
+      const selectedId = getEnrollmentId(selectedEnrollment);
+      const enrollments = await getLearningEnrollments();
+      const currentEnrollment = enrollments.find(
+        (enrollment) => getEnrollmentId(enrollment) === selectedId,
+      );
+      if (
+        !currentEnrollment
+        || enrollmentStatus(currentEnrollment) !== 'ACTIVE'
+        || enrollmentProgram(currentEnrollment) === 'FLUENT'
+      ) {
+        returnToMyLearning();
+        return;
+      }
+      setData(await getStudentSlots(selectedId));
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to load slot data.');
+      if (isUnavailableEnrollmentError(e)) {
+        returnToMyLearning();
+        return;
+      }
+      setError(apiErrorMessage(e, 'Failed to load slot data.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigation, returnToMyLearning, selectedEnrollment]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    void fetchData();
+  }, [fetchData]);
 
   const clearMessages = () => {
     setError('');
     setSuccessMsg('');
   };
 
-  const handleBook = async () => {
+  const submitBooking = async (request: BookStudentSlotRequest) => {
+    if (bookingInFlight.current || !selectedEnrollment) return;
+    bookingInFlight.current = true;
+    try {
+      setBooking(true);
+      const response = await bookStudentSlot(request, getEnrollmentId(selectedEnrollment));
+      setSuccessMsg(response.message);
+      setSelectedSlotId(null);
+      setSelectedChapter(null);
+      setSlokaCount('');
+      setAddSecondChapter(false);
+      setSelectedChapter2(null);
+      setSlokaCount2('');
+      await fetchData();
+    } catch (e: any) {
+      if (isUnavailableEnrollmentError(e)) {
+        returnToMyLearning();
+        return;
+      }
+      setError(apiErrorMessage(e, 'Failed to book slot.'));
+    } finally {
+      bookingInFlight.current = false;
+      setBooking(false);
+    }
+  };
+
+  const handleBook = () => {
+    if (booking) return;
     clearMessages();
 
     if (!selectedSlotId) {
@@ -113,22 +173,16 @@ export default function StudentSlotsScreen({ navigation }: Props) {
       setError('Please select a chapter.');
       return;
     }
-    const count = parseInt(slokaCount, 10);
-    if (!count || count <= 0) {
-      setError('Please enter a valid sloka count.');
+    const firstError = validateSlokaCount(selectedChapter, slokaCount);
+    if (firstError) {
+      setError(firstError);
       return;
     }
 
-    const maxSlokas = selectedChapter.allowedSlokas ?? selectedChapter.totalSlokas;
-    if (count > maxSlokas) {
-      setError(`Sloka count cannot exceed ${maxSlokas} for Chapter ${selectedChapter.chapterNumber}.`);
-      return;
-    }
-
-    const body: Record<string, any> = {
+    const body: BookStudentSlotRequest = {
       slotId: selectedSlotId,
       chapterId: selectedChapter.id,
-      slokaCount: count,
+      slokaCount: Number(slokaCount),
     };
 
     if (addSecondChapter) {
@@ -136,57 +190,69 @@ export default function StudentSlotsScreen({ navigation }: Props) {
         setError('Please select a second chapter or uncheck the option.');
         return;
       }
-      const count2 = parseInt(slokaCount2, 10);
-      if (!count2 || count2 <= 0) {
-        setError('Please enter a valid sloka count for the second chapter.');
-        return;
-      }
-      const maxSlokas2 = selectedChapter2.allowedSlokas ?? selectedChapter2.totalSlokas;
-      if (count2 > maxSlokas2) {
-        setError(`Sloka count cannot exceed ${maxSlokas2} for Chapter ${selectedChapter2.chapterNumber}.`);
+      const secondError = validateSlokaCount(selectedChapter2, slokaCount2);
+      if (secondError) {
+        setError(secondError);
         return;
       }
       body.chapterId2 = selectedChapter2.id;
-      body.slokaCount2 = count2;
+      body.slokaCount2 = Number(slokaCount2);
     }
 
-    try {
-      setBooking(true);
-      await api.post('/student/book', body);
-      setSuccessMsg('Slot booked successfully!');
-      setSelectedSlotId(null);
-      setSelectedChapter(null);
-      setSlokaCount('');
-      setAddSecondChapter(false);
-      setSelectedChapter2(null);
-      setSlokaCount2('');
-      await fetchData();
-    } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to book slot.');
-    } finally {
-      setBooking(false);
-    }
+    const replacing = data?.existingBookings.some((existing) => !existing.cancelled) ?? false;
+    Alert.alert(
+      replacing ? 'Replace Booking' : 'Confirm Booking',
+      replacing
+        ? 'This will replace your current booking for the upcoming examination. Continue?'
+        : 'Confirm this exam slot booking?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: replacing ? 'Replace' : 'Confirm', onPress: () => void submitBooking(body) },
+      ],
+    );
   };
 
   const handleCancel = async (bookingId: number) => {
+    if (cancellationInFlight.current || !selectedEnrollment) return;
+    cancellationInFlight.current = true;
     clearMessages();
     try {
       setCancelling(bookingId);
-      await api.post('/student/cancel', { bookingId });
-      setSuccessMsg('Booking cancelled successfully.');
+      const response = await cancelStudentBooking(
+        { bookingId },
+        getEnrollmentId(selectedEnrollment),
+      );
+      setSuccessMsg(response.message);
       await fetchData();
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to cancel booking.');
+      if (isUnavailableEnrollmentError(e)) {
+        returnToMyLearning();
+        return;
+      }
+      setError(apiErrorMessage(e, 'Failed to cancel booking.'));
     } finally {
+      cancellationInFlight.current = false;
       setCancelling(null);
     }
+  };
+
+  const confirmCancellation = (bookingId: number) => {
+    if (cancelling !== null) return;
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        { text: 'Keep Booking', style: 'cancel' },
+        { text: 'Cancel Booking', style: 'destructive', onPress: () => void handleCancel(bookingId) },
+      ],
+    );
   };
 
   const renderChapterDropdown = (
     visible: boolean,
     setVisible: (v: boolean) => void,
-    selected: Chapter | null,
-    onSelect: (c: Chapter) => void,
+    selected: StudentChapter | null,
+    onSelect: (c: StudentChapter) => void,
   ) => (
     <View>
       <TouchableOpacity
@@ -290,8 +356,22 @@ export default function StudentSlotsScreen({ navigation }: Props) {
           />
         )}
 
+        {data?.slotEligible && data?.bookingAllowed && data.slots.length === 0 && (
+          <AlertBox
+            type="info"
+            message="No exam time windows are available for the upcoming Sunday. Please check again later."
+          />
+        )}
+
+        {data?.slotEligible && data?.bookingAllowed && data.slots.length > 0 && data.chapters.length === 0 && (
+          <AlertBox
+            type="info"
+            message="No chapters are available for this examination yet. Please check again later."
+          />
+        )}
+
         {/* Booking form - only if eligible and allowed */}
-        {data?.slotEligible && data?.bookingAllowed && (
+        {data?.slotEligible && data?.bookingAllowed && data.slots.length > 0 && data.chapters.length > 0 && (
           <ContentCard title="Book a Slot" headerVariant="orange">
             {/* Slot selection */}
             <Text style={styles.fieldLabel}>Select Time Slot</Text>
@@ -383,8 +463,9 @@ export default function StudentSlotsScreen({ navigation }: Props) {
             />
             {selectedChapter && (
               <Text style={styles.fieldHint}>
-                Max: {selectedChapter.allowedSlokas ?? selectedChapter.totalSlokas} slokas for Ch{' '}
-                {selectedChapter.chapterNumber}
+                {selectedChapter.allowedSlokas
+                  ? `Allowed: ${selectedChapter.allowedSlokas}`
+                  : `Chapter total: ${selectedChapter.totalSlokas}`}
               </Text>
             )}
 
@@ -433,8 +514,9 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                 />
                 {selectedChapter2 && (
                   <Text style={styles.fieldHint}>
-                    Max: {selectedChapter2.allowedSlokas ?? selectedChapter2.totalSlokas} slokas for
-                    Ch {selectedChapter2.chapterNumber}
+                    {selectedChapter2.allowedSlokas
+                      ? `Allowed: ${selectedChapter2.allowedSlokas}`
+                      : `Chapter total: ${selectedChapter2.totalSlokas}`}
                   </Text>
                 )}
               </View>
@@ -450,7 +532,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
               {booking ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={styles.bookButtonText}>Book Slot</Text>
+                <Text style={styles.bookButtonText}>Confirm Booking</Text>
               )}
             </TouchableOpacity>
           </ContentCard>
@@ -485,7 +567,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                 {!bk.cancelled && (
                   <TouchableOpacity
                     style={styles.cancelButton}
-                    onPress={() => handleCancel(bk.id)}
+                    onPress={() => confirmCancellation(bk.id)}
                     activeOpacity={0.7}
                     disabled={cancelling === bk.id}
                   >
