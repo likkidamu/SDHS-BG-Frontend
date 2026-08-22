@@ -1,12 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import storage from '../services/storage';
-import api from '../services/api';
+import api, { setUnauthorizedHandler } from '../services/api';
+
+interface ProfileResponse {
+  volunteerId: string;
+  name: string;
+  role: string;
+  groupId: string | null;
+}
 
 interface User {
   volunteerId: string;
   name: string;
   role: string;
-  groupId: string;
+  groupId: string | null;
   defaultPassword: boolean;
 }
 
@@ -25,24 +32,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load saved session on app start
+  const clearSession = () => {
+    setToken(null);
+    setUser(null);
+  };
+
+  // Restore identity from the backend. Cached user data is never trusted.
   useEffect(() => {
+    setUnauthorizedHandler(clearSession);
+
     (async () => {
       try {
         const savedToken = await storage.getItem('token');
-        const savedUser = await storage.getItem('user');
-        if (savedToken && savedUser) {
-          const parsed = JSON.parse(savedUser);
-          parsed.defaultPassword = parsed.defaultPassword === true || parsed.defaultPassword === 'true';
+        await storage.removeItem('user');
+        if (savedToken) {
+          const response = await api.get<ProfileResponse>('/profile');
+          const profile = response.data;
           setToken(savedToken);
-          setUser(parsed);
+          setUser({
+            volunteerId: profile.volunteerId,
+            name: profile.name,
+            role: profile.role,
+            groupId: profile.groupId,
+            defaultPassword: false,
+          });
         }
-      } catch (e) {
-        // ignore
+      } catch {
+        clearSession();
       } finally {
         setIsLoading(false);
       }
     })();
+
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const login = async (volunteerId: string, password: string) => {
@@ -52,13 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const defaultPassword = data.defaultPassword === true || data.defaultPassword === 'true';
 
     await storage.setItem('token', data.token);
-    await storage.setItem('user', JSON.stringify({
-      volunteerId: data.volunteerId,
-      name: data.name,
-      role: data.role,
-      groupId: data.groupId,
-      defaultPassword,
-    }));
+    await storage.removeItem('user');
 
     setToken(data.token);
     setUser({
@@ -73,8 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await storage.removeItem('token');
     await storage.removeItem('user');
-    setToken(null);
-    setUser(null);
+    clearSession();
   };
 
   return (

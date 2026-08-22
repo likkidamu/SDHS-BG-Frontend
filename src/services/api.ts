@@ -1,6 +1,12 @@
 import axios from 'axios';
 import storage from './storage';
 
+let unauthorizedHandler: (() => void | Promise<void>) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void | Promise<void>) | null) {
+  unauthorizedHandler = handler;
+}
+
 const API_BASE_URL = __DEV__
   ? 'http://10.0.0.232:8080/api/v1'   // Your laptop's local IP — phone and laptop must be on same WiFi
   : 'https://volunteerbgm.onrender.com/api/v1';
@@ -26,6 +32,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       await storage.removeItem('token');
       await storage.removeItem('user');
+      await unauthorizedHandler?.();
     }
     return Promise.reject(error);
   }
