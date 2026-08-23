@@ -7,36 +7,20 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { TopNavbar, ContentCard, AlertBox, Footer } from '../components';
+import { TopNavbar, ContentCard, AlertBox, Footer, StatCard } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import type { TeacherAttendanceResponse } from '../features/teacher/attendance/models';
+import {
+  buildTeacherAttendanceRequest,
+  getTeacherAttendance,
+  saveTeacherAttendance,
+} from '../features/teacher/attendance/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
-
-interface StudentInfo {
-  volunteerId: string;
-  name: string;
-}
-
-interface AttendanceData {
-  volunteerId: string;
-  teacherName: string;
-  groupId: string | null;
-  groups: string[];
-  weekStart: string; // YYYY-MM-DD
-  weekEnd: string;   // YYYY-MM-DD
-  weekDates: string[];
-  dateLabels: Record<string, string>; // "YYYY-MM-DD" -> "dd MMM yyyy"
-  students: StudentInfo[];
-  presentMap: Record<string, boolean>; // "YYYY-MM-DD|studentVid" -> true/false
-  noClassMap: Record<string, boolean>; // "YYYY-MM-DD" -> true
-  groupStartDate: string | null;
-  groupEndDate: string | null;
-  today: string;
-}
 
 function getSunday(date: Date): Date {
   const d = new Date(date);
@@ -71,9 +55,11 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
   const [groupId, setGroupId] = useState<string>(user?.groupId || '');
   const [groupInputValue, setGroupInputValue] = useState<string>(user?.groupId || '');
   const [weekStart, setWeekStart] = useState<string>(formatDateISO(getSunday(new Date())));
-  const [data, setData] = useState<AttendanceData | null>(null);
+  const [data, setData] = useState<TeacherAttendanceResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   // Local state for attendance checkboxes: key = "YYYY-MM-DD|studentVid" -> boolean
@@ -81,18 +67,21 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
   // Local state for no-class toggles: key = "YYYY-MM-DD" -> boolean
   const [noClassState, setNoClassState] = useState<Record<string, boolean>>({});
 
-  const fetchAttendance = useCallback(async (gId: string, ws: string) => {
+  const fetchAttendance = useCallback(async (
+    gId: string,
+    ws: string,
+    refresh = false,
+    preserveAlert = false,
+  ) => {
     if (!gId.trim()) {
       setAlert({ type: 'info', message: 'Please enter a Group ID and press Load.' });
       return;
     }
-    setLoading(true);
-    setAlert(null);
+    refresh ? setRefreshing(true) : setLoading(true);
+    setLoadFailed(false);
+    if (!preserveAlert) setAlert(null);
     try {
-      const params: Record<string, string> = { groupId: gId.trim() };
-      if (ws) params.weekStart = ws;
-      const res = await api.get('/teacher/attendance', { params });
-      const d: AttendanceData = res.data;
+      const d = await getTeacherAttendance({ groupId: gId.trim(), ...(ws ? { weekStart: ws } : {}) });
       setData(d);
 
       // Initialize local state from server data
@@ -105,9 +94,11 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || 'Failed to load attendance data.';
       setAlert({ type: 'error', message: msg });
+      setLoadFailed(true);
       setData(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -153,10 +144,33 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
   };
 
   const toggleNoClass = (dateStr: string) => {
-    setNoClassState((prev) => ({
-      ...prev,
-      [dateStr]: !prev[dateStr],
-    }));
+    const markedNoClass = !noClassState[dateStr];
+    setNoClassState((prev) => ({ ...prev, [dateStr]: markedNoClass }));
+    if (markedNoClass) {
+      setPresentState((current) => Object.fromEntries(
+        Object.entries(current).filter(([key]) => !key.startsWith(`${dateStr}|`)),
+      ));
+    }
+  };
+
+  const markAll = (dateStr: string, markedPresent: boolean) => {
+    if (!data || isDateDisabled(dateStr) || noClassState[dateStr]) return;
+    setPresentState((current) => {
+      const updated = { ...current };
+      data.students.forEach((student) => {
+        updated[`${dateStr}|${student.volunteerId}`] = markedPresent;
+      });
+      return updated;
+    });
+  };
+
+  const attendanceSummary = (dateStr: string) => {
+    if (!data || noClassState[dateStr]) return { presentCount: 0, absentCount: 0 };
+    const presentCount = data.students.reduce(
+      (count, student) => count + (presentState[`${dateStr}|${student.volunteerId}`] ? 1 : 0),
+      0,
+    );
+    return { presentCount, absentCount: data.students.length - presentCount };
   };
 
   const handleSave = async () => {
@@ -166,36 +180,14 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
     setAlert(null);
 
     try {
-      // Build attendance list: only entries marked as present
-      const attendance: { date: string; studentVid: string }[] = [];
-      for (const [key, isPresent] of Object.entries(presentState)) {
-        if (isPresent) {
-          const [date, studentVid] = key.split('|');
-          if (date && studentVid) {
-            attendance.push({ date, studentVid });
-          }
-        }
-      }
-
-      // Build noClassDates list
-      const noClassDates: string[] = [];
-      for (const [dateStr, isNoClass] of Object.entries(noClassState)) {
-        if (isNoClass) {
-          noClassDates.push(dateStr);
-        }
-      }
-
-      await api.post('/teacher/attendance/save', {
-        groupId: groupId.trim(),
-        weekStart: data.weekStart,
-        attendance,
-        noClassDates,
-      });
-
-      setAlert({ type: 'success', message: 'Attendance saved successfully!' });
+      const request = buildTeacherAttendanceRequest(
+        groupId.trim(), data.weekStart, presentState, noClassState,
+      );
+      const response = await saveTeacherAttendance(request);
 
       // Refresh data
-      fetchAttendance(groupId, weekStart);
+      setAlert({ type: 'success', message: response.message });
+      await fetchAttendance(groupId, weekStart, false, true);
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || 'Failed to save attendance.';
       setAlert({ type: 'error', message: msg });
@@ -216,6 +208,12 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
   const weekDates = data?.weekDates || [];
   const students = data?.students || [];
   const dateLabels = data?.dateLabels || {};
+  const todaySummary = data ? attendanceSummary(data.today) : { presentCount: 0, absentCount: 0 };
+  const todayInSelectedWeek = data?.weekDates.includes(data.today) ?? false;
+  const markedPresent = data?.weekDates.reduce(
+    (total, date) => total + attendanceSummary(date).presentCount,
+    0,
+  ) ?? 0;
 
   return (
     <View style={styles.page}>
@@ -227,8 +225,18 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
         ]}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+          if (groupId.trim()) void fetchAttendance(groupId, weekStart, true);
+        }} colors={[colors.primary]} tintColor={colors.primary} />}
+      >
         {alert && <AlertBox type={alert.type} message={alert.message} />}
+        {loadFailed && groupId.trim() ? (
+          <TouchableOpacity style={styles.retryBtn} onPress={() => void fetchAttendance(groupId, weekStart)}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Group Selector */}
         <ContentCard title="Select Group" headerVariant="navy">
@@ -304,6 +312,16 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
           </View>
         )}
 
+        {!loading && data && students.length > 0 && (
+          <ContentCard title="Attendance Summary" headerVariant="navy">
+            <View style={styles.summaryGrid}>
+              <StatCard value={students.length} label="Students" iconLabel="👥" iconBg={colors.blueBg} iconColor={colors.blue} />
+              <StatCard value={todayInSelectedWeek ? todaySummary.presentCount : '—'} label="Present Today" iconLabel="✓" iconBg={colors.greenBg} iconColor={colors.green} />
+              <StatCard value={markedPresent} label="Present Marks This Week" iconLabel="📋" iconBg={colors.orangeBg} iconColor={colors.primary} />
+            </View>
+          </ContentCard>
+        )}
+
         {/* Attendance Grid */}
         {!loading && data && students.length > 0 && (
           <ContentCard title="Attendance Grid" headerVariant="navy" rightLabel={`${students.length} students`}>
@@ -350,7 +368,20 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
                   {weekDates.map((dateStr) => (
                     <View key={`hdr-${dateStr}`} style={styles.dateCell}>
                       <Text style={styles.dateHeaderDay}>{getDayAbbr(dateStr)}</Text>
-                      <Text style={styles.dateHeaderDate}>{dateStr.slice(5)}</Text>
+                      <Text style={styles.dateHeaderDate}>{dateLabels[dateStr] ?? dateStr.slice(5)}</Text>
+                      {!noClassState[dateStr] ? (
+                        <Text style={styles.dateSummary}>{attendanceSummary(dateStr).presentCount} P · {attendanceSummary(dateStr).absentCount} A</Text>
+                      ) : <Text style={styles.dateSummary}>No Class</Text>}
+                      {!isDateDisabled(dateStr) && !noClassState[dateStr] ? (
+                        <View style={styles.markAllRow}>
+                          <TouchableOpacity style={styles.markAllButton} onPress={() => markAll(dateStr, true)}>
+                            <Text style={styles.markAllText}>All P</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.markAllButton} onPress={() => markAll(dateStr, false)}>
+                            <Text style={styles.markAllText}>All A</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
                     </View>
                   ))}
                 </View>
@@ -398,6 +429,8 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
                 ))}
               </View>
             </ScrollView>
+
+            <Text style={styles.saveGuidance}>Future dates and dates outside the active group period are locked.</Text>
 
             {/* Save Button */}
             <TouchableOpacity
@@ -466,6 +499,18 @@ const styles = StyleSheet.create({
   },
   loadBtnText: {
     color: '#fff',
+    fontSize: 14,
+    ...fonts.bold,
+  },
+  retryBtn: {
+    alignSelf: 'center',
+    backgroundColor: colors.navy,
+    borderRadius: borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  retryBtnText: {
+    color: colors.white,
     fontSize: 14,
     ...fonts.bold,
   },
@@ -543,6 +588,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     ...fonts.medium,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 
   // Section label
@@ -635,7 +685,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dateCell: {
-    width: 60,
+    width: 84,
     alignItems: 'center',
     paddingVertical: 8,
     borderRightWidth: 1,
@@ -650,9 +700,32 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     ...fonts.medium,
+    textAlign: 'center',
+  },
+  dateSummary: {
+    fontSize: 9,
+    color: colors.textBody,
+    ...fonts.semiBold,
+    marginTop: 3,
+  },
+  markAllRow: {
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 4,
+  },
+  markAllButton: {
+    backgroundColor: colors.blueBg,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  markAllText: {
+    color: colors.blue,
+    fontSize: 8,
+    ...fonts.bold,
   },
   checkboxCell: {
-    width: 60,
+    width: 84,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
@@ -687,6 +760,12 @@ const styles = StyleSheet.create({
   },
 
   // Save button
+  saveGuidance: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
   saveBtn: {
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
