@@ -134,7 +134,6 @@ export default function StudentHomeScreen({ navigation }: Props) {
       <TopNavbar
         title="Student Dashboard"
         actions={[
-          { label: 'Password', onPress: () => navigation.navigate('ChangePassword') },
           { label: 'Logout', onPress: logout, variant: 'logout' },
         ]}
       />
