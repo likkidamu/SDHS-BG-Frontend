@@ -1,6 +1,6 @@
 import api from '../../../services/api';
+import type { TeacherAvailabilityResponse } from '../availability/models';
 import type {
-  TeacherAvailabilityResponse,
   TeacherDashboardResponse,
   TeacherHomeData,
   TeacherHomeResponse,

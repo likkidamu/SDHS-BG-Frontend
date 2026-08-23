@@ -1,3 +1,5 @@
+import type { TeacherAvailabilityResponse } from '../availability/models';
+
 export interface TeacherHomeResponse {
   volunteerId: string;
   teacherName: string;
@@ -10,17 +12,6 @@ export interface TeacherHomeResponse {
   avgPro: string;
   gradeDist: Record<string, number>;
   chapterCounts: Record<string, number>;
-}
-
-export interface TeacherAvailabilitySlot {
-  id: number;
-  name: string;
-}
-
-export interface TeacherAvailabilityResponse {
-  examDate: string;
-  availableSlots: TeacherAvailabilitySlot[];
-  selectedSlotIds: number[];
 }
 
 export interface TeacherDashboardBooking {

@@ -15,6 +15,7 @@ import StudentSlotsScreen from './src/screens/StudentSlotsScreen';
 import StudentGradesScreen from './src/screens/StudentGradesScreen';
 import StudentAttendanceScreen from './src/screens/StudentAttendanceScreen';
 import TeacherHomeScreen from './src/screens/TeacherHomeScreen';
+import TeacherAvailabilityScreen from './src/screens/TeacherAvailabilityScreen';
 import TeacherDashboardScreen from './src/screens/TeacherDashboardScreen';
 import TeacherAttendanceScreen from './src/screens/TeacherAttendanceScreen';
 import AdminHomeScreen from './src/screens/AdminHomeScreen';
@@ -75,6 +76,7 @@ function AppNavigator() {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="TeacherHome" component={TeacherHomeScreen} />
+        <Stack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
         <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
         <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

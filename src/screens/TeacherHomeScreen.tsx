@@ -103,6 +103,11 @@ export default function TeacherHomeScreen({ navigation }: Props) {
       onPress: () => navigation.navigate('TeacherAttendance'),
     },
     {
+      title: 'My Availability', description: 'Update upcoming exam availability', iconLabel: '🗓️',
+      iconBg: colors.orangeBg, iconColor: colors.primary,
+      onPress: () => navigation.navigate('TeacherAvailability'),
+    },
+    {
       title: 'Pending Grading', description: 'Complete pending student evaluations', iconLabel: '✏️',
       iconBg: colors.blueBg, iconColor: colors.blue,
       onPress: () => navigation.navigate('TeacherDashboard'),
@@ -122,7 +127,7 @@ export default function TeacherHomeScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} colors={[colors.primary]} tintColor={colors.primary} />}
       >
         <WelcomeCard greeting="Welcome back" name={user?.name || ''} badges={[{ label: user?.volunteerId || '' }]} />
-        <ActionGrid actions={actions} columns={2} />
+        <ActionGrid actions={actions} columns={3} />
 
         {loading ? <ActivityIndicator size="large" color={colors.primary} /> : null}
         {!loading && error ? (
