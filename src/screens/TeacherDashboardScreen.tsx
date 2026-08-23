@@ -30,7 +30,7 @@ type Booking = {
   pronunciationGrade: string;
   teacherComment: string;
   studentName: string;
-  studentPhone: string;
+  studentPhone: string | null;
   studentVolunteerId: string;
 };
 
@@ -251,6 +251,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.studentName}>{booking.studentName}</Text>
             <Text style={styles.studentId}>ID: {booking.studentVolunteerId}</Text>
+            {booking.studentPhone ? (
+              <Text style={styles.studentPhone}>Phone: {booking.studentPhone}</Text>
+            ) : null}
           </View>
           {graded && !changed && (
             <View style={styles.gradedBadge}>
@@ -615,6 +618,12 @@ const styles = StyleSheet.create({
   studentId: {
     fontSize: 12,
     color: colors.textMuted,
+    ...fonts.medium,
+    marginTop: 2,
+  },
+  studentPhone: {
+    fontSize: 12,
+    color: colors.textBody,
     ...fonts.medium,
     marginTop: 2,
   },
