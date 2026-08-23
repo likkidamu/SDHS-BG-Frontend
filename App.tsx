@@ -51,15 +51,6 @@ function AppNavigator() {
     );
   }
 
-  // Force password change
-  if (user.defaultPassword) {
-    return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      </Stack.Navigator>
-    );
-  }
-
   // Role-based navigation
   if (user.role === 'ADMIN') {
     return (
