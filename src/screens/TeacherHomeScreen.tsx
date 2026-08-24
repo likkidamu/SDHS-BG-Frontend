@@ -12,7 +12,8 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActionGrid, AlertBox, ContentCard, Footer, StatCard, TopNavbar, WelcomeCard } from '../components';
 import { useAuth } from '../context/AuthContext';
-import type { TeacherDashboardBooking, TeacherHomeData } from '../features/teacher/home/models';
+import type { TeacherGradingBooking } from '../features/teacher/grading/models';
+import type { TeacherHomeData } from '../features/teacher/home/models';
 import { getTeacherHome } from '../features/teacher/home/service';
 import { colors, fonts, spacing } from '../theme';
 
@@ -31,7 +32,7 @@ function errorMessage(error: any): string {
     ?? 'Failed to load teacher dashboard.';
 }
 
-function BookingRow({ booking, recent = false }: { booking: TeacherDashboardBooking; recent?: boolean }) {
+function BookingRow({ booking, recent = false }: { booking: TeacherGradingBooking; recent?: boolean }) {
   const chapter = booking.chapterName ?? `Chapter ${booking.chapterNumber ?? ''}`;
   return (
     <View style={styles.listRow}>

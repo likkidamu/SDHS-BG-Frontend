@@ -1,4 +1,5 @@
 import type { TeacherAvailabilityResponse } from '../availability/models';
+import type { TeacherGradingDashboardResponse } from '../grading/models';
 
 export interface TeacherHomeResponse {
   volunteerId: string;
@@ -14,31 +15,8 @@ export interface TeacherHomeResponse {
   chapterCounts: Record<string, number>;
 }
 
-export interface TeacherDashboardBooking {
-  id: number;
-  date: string | null;
-  formattedDate: string | null;
-  cancelled: boolean;
-  slotName?: string;
-  chapterNumber?: number;
-  chapterName?: string;
-  slokaCount: number | null;
-  memorizationGrade: string | null;
-  pronunciationGrade: string | null;
-  teacherComment: string | null;
-  studentName: string;
-  studentPhone: string | null;
-  studentVolunteerId: string;
-}
-
-export interface TeacherDashboardResponse {
-  volunteerId: string;
-  bookings: TeacherDashboardBooking[];
-  gradesList: string[];
-}
-
 export interface TeacherHomeData {
   home: TeacherHomeResponse;
   availability: TeacherAvailabilityResponse;
-  grading: TeacherDashboardResponse;
+  grading: TeacherGradingDashboardResponse;
 }

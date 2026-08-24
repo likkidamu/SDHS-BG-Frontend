@@ -8,37 +8,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  FlatList,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { TopNavbar, StatCard, ContentCard, AlertBox, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import type { TeacherGradingBooking } from '../features/teacher/grading/models';
+import {
+  getTeacherGradingDashboard,
+  getTeacherGradingError,
+  updateTeacherGrade,
+} from '../features/teacher/grading/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type Booking = {
-  id: number;
-  date: string;
-  formattedDate: string;
-  cancelled: boolean;
-  slotName: string;
-  chapterNumber: number;
-  chapterName: string;
-  slokaCount: number;
-  memorizationGrade: string;
-  pronunciationGrade: string;
-  teacherComment: string;
-  studentName: string;
-  studentPhone: string;
-  studentVolunteerId: string;
-};
-
-type DashboardData = {
-  volunteerId: string;
-  bookings: Booking[];
-  gradesList: string[];
-};
 
 type BookingEdits = {
   memorizationGrade: string;
@@ -53,13 +35,23 @@ type RowFeedback = {
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
+function chapterLabel(booking: TeacherGradingBooking): string {
+  if (booking.chapterName === 'Dhyana Slokas' || booking.chapterName === 'Gita Mahatyam') {
+    return booking.chapterName;
+  }
+  if (booking.chapterNumber === undefined) {
+    return booking.chapterName ?? '-';
+  }
+  return `Ch.${booking.chapterNumber}${booking.chapterName ? ` - ${booking.chapterName}` : ''}`;
+}
+
 export default function TeacherDashboardScreen({ navigation }: Props) {
   const { logout } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<TeacherGradingBooking[]>([]);
   const [gradesList, setGradesList] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
 
@@ -78,8 +70,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
   const fetchDashboard = useCallback(async () => {
     try {
       setError('');
-      const res = await api.get<DashboardData>('/teacher/dashboard');
-      const data = res.data;
+      const data = await getTeacherGradingDashboard();
       setBookings(data.bookings || []);
       setGradesList(data.gradesList || []);
 
@@ -95,17 +86,19 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
       setEdits(initialEdits);
       setFeedback({});
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to load dashboard');
+      setError(getTeacherGradingError(e, 'Failed to load dashboard'));
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await fetchDashboard();
-      setLoading(false);
-    })();
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    await fetchDashboard();
+    setLoading(false);
   }, [fetchDashboard]);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -117,7 +110,10 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
   const filteredBookings = useMemo(() => {
     if (!searchText.trim()) return bookings;
     const q = searchText.trim().toLowerCase();
-    return bookings.filter((b) => b.studentName.toLowerCase().includes(q));
+    return bookings.filter(
+      (b) => b.studentName.toLowerCase().includes(q)
+        || b.studentVolunteerId.toLowerCase().includes(q),
+    );
   }, [bookings, searchText]);
 
   // Stats
@@ -129,7 +125,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
 
   // Check if a booking row has changes compared to server data
   const hasChanges = useCallback(
-    (booking: Booking): boolean => {
+    (booking: TeacherGradingBooking): boolean => {
       const edit = edits[booking.id];
       if (!edit) return false;
       return (
@@ -174,7 +170,8 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
   };
 
   // Save grading for a booking
-  const saveGrade = async (booking: Booking) => {
+  const saveGrade = async (booking: TeacherGradingBooking) => {
+    if (booking.cancelled) return;
     const edit = edits[booking.id];
     if (!edit) return;
 
@@ -186,14 +183,14 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     });
 
     try {
-      const res = await api.post<{ ok: boolean; message: string }>('/teacher/grade', {
+      const response = await updateTeacherGrade({
         bookingId: booking.id,
         memorizationGrade: edit.memorizationGrade,
         pronunciationGrade: edit.pronunciationGrade,
         comment: edit.comment,
       });
 
-      if (res.data.ok) {
+      if (response.ok) {
         // Update local booking data to reflect saved state
         setBookings((prev) =>
           prev.map((b) =>
@@ -209,12 +206,12 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         );
         setFeedback((prev) => ({
           ...prev,
-          [booking.id]: { type: 'success', message: res.data.message || 'Saved successfully' },
+          [booking.id]: { type: 'success', message: response.message || 'Saved successfully' },
         }));
       } else {
         setFeedback((prev) => ({
           ...prev,
-          [booking.id]: { type: 'error', message: res.data.message || 'Failed to save' },
+          [booking.id]: { type: 'error', message: response.message || 'Failed to save' },
         }));
       }
     } catch (e: any) {
@@ -222,7 +219,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         ...prev,
         [booking.id]: {
           type: 'error',
-          message: e?.response?.data?.message || 'Failed to save grade',
+          message: getTeacherGradingError(e, 'Failed to save grade'),
         },
       }));
     } finally {
@@ -230,10 +227,10 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     }
   };
 
-  const isGraded = (booking: Booking): boolean =>
+  const isGraded = (booking: TeacherGradingBooking): boolean =>
     !!(booking.memorizationGrade && booking.memorizationGrade.trim() !== '');
 
-  const renderBookingCard = (booking: Booking) => {
+  const renderBookingCard = (booking: TeacherGradingBooking) => {
     const edit = edits[booking.id] || {
       memorizationGrade: '',
       pronunciationGrade: '',
@@ -251,6 +248,11 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.studentName}>{booking.studentName}</Text>
             <Text style={styles.studentId}>ID: {booking.studentVolunteerId}</Text>
+            {booking.studentPhone ? (
+              <TouchableOpacity onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}>
+                <Text style={styles.studentPhone}>{booking.studentPhone}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
           {graded && !changed && (
             <View style={styles.gradedBadge}>
@@ -268,24 +270,23 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         <View style={styles.detailsRow}>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Date</Text>
-            <Text style={styles.detailValue}>{booking.formattedDate}</Text>
+            <Text style={styles.detailValue}>{booking.formattedDate ?? booking.date ?? '-'}</Text>
           </View>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Slot</Text>
-            <Text style={styles.detailValue}>{booking.slotName}</Text>
+            <Text style={styles.detailValue}>{booking.slotName ?? '-'}</Text>
           </View>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Chapter</Text>
-            <Text style={styles.detailValue}>
-              Ch.{booking.chapterNumber} - {booking.chapterName}
-            </Text>
+            <Text style={styles.detailValue}>{chapterLabel(booking)}</Text>
           </View>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Slokas</Text>
-            <Text style={styles.detailValue}>{booking.slokaCount}</Text>
+            <Text style={styles.detailValue}>{booking.slokaCount ?? '-'}</Text>
           </View>
         </View>
 
+        {!booking.cancelled ? <>
         {/* Grade selectors */}
         <View style={styles.gradeRow}>
           <View style={styles.gradeField}>
@@ -367,6 +368,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             </Text>
           )}
         </TouchableOpacity>
+        </> : null}
       </View>
     );
   };
@@ -405,8 +407,16 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {error ? <AlertBox type="error" message={error} /> : null}
+        {error ? (
+          <View style={styles.errorState}>
+            <AlertBox type="error" message={error} />
+            <TouchableOpacity style={styles.retryButton} onPress={() => void loadDashboard()}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
+        {!error ? <>
         {/* Stat cards */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -444,7 +454,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by student name..."
+            placeholder="Search by student name or volunteer ID..."
             placeholderTextColor={colors.textMuted}
             value={searchText}
             onChangeText={setSearchText}
@@ -470,6 +480,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         ) : (
           filteredBookings.map(renderBookingCard)
         )}
+        </> : null}
 
         <Footer />
       </ScrollView>
@@ -618,6 +629,13 @@ const styles = StyleSheet.create({
     ...fonts.medium,
     marginTop: 2,
   },
+  studentPhone: {
+    fontSize: 12,
+    color: colors.blue,
+    ...fonts.medium,
+    marginTop: 2,
+    textDecorationLine: 'underline',
+  },
   gradedBadge: {
     backgroundColor: colors.greenBg,
     borderWidth: 1,
@@ -763,6 +781,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     ...fonts.regular,
     textAlign: 'center',
+  },
+  errorState: {
+    gap: spacing.sm,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.navy,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    ...fonts.bold,
   },
 
   // Modal
