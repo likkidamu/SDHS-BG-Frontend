@@ -1,43 +1,49 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Alert, FlatList,
+  TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import type { Chapter, ExistingBooking, Slot, StudentSearchResult } from '../features/admin/bulkBooking/models';
+import type { BulkBookingEntry, Chapter, ExistingBooking, Slot, StudentSearchResult, TrackType } from '../features/admin/bulkBooking/models';
 import {
   deleteAdminBulkBooking,
   getAdminAllowedSlokas,
   getAdminBulkBooking,
-  saveLegacyAdminBulkBookings,
   searchAdminBookingStudents,
 } from '../features/admin/bulkBooking/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
-interface BookingDraft {
+interface BookingEditor {
   volunteerId: string;
   studentName: string;
   slotId: string;
   chapterId: string;
   slokaCount: string;
-  loadedSlokas: number[];
-  minNext: number | null;
-  slokaLoading: boolean;
+  useSecondChapter: boolean;
+  chapterId2: string;
+  slokaCount2: string;
 }
 
-function nextSunday() {
+interface StagedBooking extends BulkBookingEntry {
+  studentName: string;
+}
+
+function currentOrNextSunday() {
   const d = new Date();
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7 || 7));
-  return d.toISOString().split('T')[0];
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-const emptyEntry = (): BookingDraft => ({
+const emptyEditor = (): BookingEditor => ({
   volunteerId: '', studentName: '', slotId: '', chapterId: '', slokaCount: '',
-  loadedSlokas: [], minNext: null, slokaLoading: false,
+  useSecondChapter: false, chapterId2: '', slokaCount2: '',
 });
 
 // ---- Student autocomplete ----
@@ -57,7 +63,7 @@ function StudentAutocomplete({
   const requestSequence = useRef(0);
 
   useEffect(() => {
-    if (selectedVolunteerId) setQuery(`${selectedName} (${selectedVolunteerId})`);
+    setQuery(selectedVolunteerId ? `${selectedName} (${selectedVolunteerId})` : '');
   }, [selectedName, selectedVolunteerId]);
 
   useEffect(() => {
@@ -153,25 +159,32 @@ const ac = StyleSheet.create({
 
 export default function AdminBulkBookingScreen({ navigation }: Props) {
   const { logout } = useAuth();
-  const [date, setDate] = useState(nextSunday());
+  const [date, setDate] = useState(currentOrNextSunday());
+  const [trackType, setTrackType] = useState<TrackType | ''>('');
   const [slots, setSlots] = useState<Slot[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [bookings, setBookings] = useState<ExistingBooking[]>([]);
-  const [entries, setEntries] = useState<BookingDraft[]>([emptyEntry()]);
+  const [editor, setEditor] = useState<BookingEditor>(emptyEditor());
+  const [stagedEntries, setStagedEntries] = useState<StagedBooking[]>([]);
+  const [allowedSlokas, setAllowedSlokas] = useState<number[]>([]);
+  const [allowedSlokas2, setAllowedSlokas2] = useState<number[]>([]);
+  const [slokaLoading, setSlokaLoading] = useState(false);
+  const [slokaLoading2, setSlokaLoading2] = useState(false);
+  const [slokaError, setSlokaError] = useState('');
+  const [slokaError2, setSlokaError2] = useState('');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const slokaRequest = useRef(0);
+  const slokaRequest2 = useRef(0);
 
   const load = useCallback(async () => {
     if (!date) return;
     try {
-      setLoading(true); setError(''); setSuccess('');
+      setLoading(true); setError('');
       const response = await getAdminBulkBooking(date);
       setSlots(response.slots);
       setChapters(response.chapters);
       setBookings(response.bookings);
-      setEntries([emptyEntry()]);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load');
     } finally { setLoading(false); }
@@ -179,56 +192,111 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateEntry = (idx: number, patch: Partial<BookingDraft>) => {
-    setEntries(es => es.map((e, i) => i === idx ? { ...e, ...patch } : e));
+  const resetEditor = () => {
+    slokaRequest.current += 1;
+    slokaRequest2.current += 1;
+    setEditor(emptyEditor());
+    setAllowedSlokas([]);
+    setAllowedSlokas2([]);
+    setSlokaLoading(false);
+    setSlokaLoading2(false);
+    setSlokaError('');
+    setSlokaError2('');
   };
 
-  const fetchSlokas = async (idx: number, volunteerId: string, chapterId: string) => {
+  const fetchSlokas = async (volunteerId: string, chapterId: string, second = false) => {
+    const requestRef = second ? slokaRequest2 : slokaRequest;
+    const request = requestRef.current + 1;
+    requestRef.current = request;
+    const setAllowed = second ? setAllowedSlokas2 : setAllowedSlokas;
+    const setLoadingState = second ? setSlokaLoading2 : setSlokaLoading;
+    const setErrorState = second ? setSlokaError2 : setSlokaError;
     if (!volunteerId || !chapterId) {
-      updateEntry(idx, { loadedSlokas: [], minNext: null });
+      setAllowed([]);
+      setErrorState('');
       return;
     }
-    updateEntry(idx, { slokaLoading: true, loadedSlokas: [], slokaCount: '' });
+    setLoadingState(true);
+    setAllowed([]);
+    setErrorState('');
     try {
       const response = await getAdminAllowedSlokas(volunteerId, date, parseInt(chapterId, 10));
-      updateEntry(idx, {
-        loadedSlokas: response.allowed,
-        minNext: response.minNext ?? null,
-        slokaLoading: false,
-      });
-    } catch {
-      updateEntry(idx, { slokaLoading: false, loadedSlokas: [], minNext: null });
+      if (requestRef.current === request) setAllowed(response.allowed);
+    } catch (requestError: any) {
+      if (requestRef.current === request) {
+        setErrorState(requestError.response?.data?.error ?? requestError.response?.data?.message ?? 'Unable to load allowed slokas.');
+      }
+    } finally {
+      if (requestRef.current === request) setLoadingState(false);
     }
   };
 
-  const onStudentSelect = (idx: number, s: StudentSearchResult) => {
-    const entry = entries[idx];
-    updateEntry(idx, { volunteerId: s.volunteerId, studentName: s.name });
-    if (entry.chapterId) fetchSlokas(idx, s.volunteerId, entry.chapterId);
+  const onStudentSelect = (student: StudentSearchResult) => {
+    setEditor(current => ({ ...current, volunteerId: student.volunteerId, studentName: student.name, slokaCount: '', slokaCount2: '' }));
+    if (editor.chapterId) void fetchSlokas(student.volunteerId, editor.chapterId);
+    if (editor.useSecondChapter && editor.chapterId2) void fetchSlokas(student.volunteerId, editor.chapterId2, true);
   };
 
-  const onChapterSelect = (idx: number, chapterId: string) => {
-    const entry = entries[idx];
-    updateEntry(idx, { chapterId, slokaCount: '' });
-    if (entry.volunteerId) fetchSlokas(idx, entry.volunteerId, chapterId);
+  const onChapterSelect = (chapterId: string, second = false) => {
+    setEditor(current => second
+      ? { ...current, chapterId2: chapterId, slokaCount2: '' }
+      : { ...current, chapterId, slokaCount: '' });
+    if (editor.volunteerId) void fetchSlokas(editor.volunteerId, chapterId, second);
   };
 
-  const save = async () => {
-    const valid = entries.filter(e => e.volunteerId && e.slotId && e.chapterId && e.slokaCount);
-    if (valid.length === 0) { Alert.alert('Nothing to save', 'Fill in at least one row.'); return; }
-    setSaving(true); setError(''); setSuccess('');
-    try {
-      const response = await saveLegacyAdminBulkBookings(valid.map(e => ({
-        volunteerId: e.volunteerId, date,
-        slotId: parseInt(e.slotId, 10), chapterId: parseInt(e.chapterId, 10), slokaCount: parseInt(e.slokaCount, 10),
-      })));
-      setSuccess(`${response.saved} saved, ${response.failed} failed.`);
-      if (response.messages.length) setError(response.messages.join(' | '));
-      setEntries([emptyEntry()]);
-      load();
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Save failed');
-    } finally { setSaving(false); }
+  const changeTrack = (track: TrackType) => {
+    if (track === trackType) return;
+    setTrackType(track);
+    setStagedEntries([]);
+    resetEditor();
+    setError('');
+  };
+
+  const changeDate = (value: string) => {
+    setDate(value);
+    setStagedEntries([]);
+    resetEditor();
+  };
+
+  const addToBatch = () => {
+    setError('');
+    if (!trackType) {
+      setError('Track Type is required.');
+      return;
+    }
+    if (!editor.volunteerId || !editor.slotId || !editor.chapterId || !editor.slokaCount) {
+      setError('Student, slot, chapter, and sloka count are required.');
+      return;
+    }
+    const slokaCount = parseInt(editor.slokaCount, 10);
+    if (!allowedSlokas.includes(slokaCount)) {
+      setError(allowedSlokas.length ? `Allowed sloka counts: ${allowedSlokas.join(', ')}` : 'No allowed sloka count is available.');
+      return;
+    }
+    if (editor.useSecondChapter && (!editor.chapterId2 || !editor.slokaCount2)) {
+      setError('Second chapter and sloka count are required.');
+      return;
+    }
+    const chapterId2 = editor.chapterId2 ? parseInt(editor.chapterId2, 10) : undefined;
+    const slokaCount2 = editor.slokaCount2 ? parseInt(editor.slokaCount2, 10) : undefined;
+    if (editor.useSecondChapter && slokaCount2 !== undefined && !allowedSlokas2.includes(slokaCount2)) {
+      setError(allowedSlokas2.length ? `Allowed second-chapter sloka counts: ${allowedSlokas2.join(', ')}` : 'No allowed sloka count is available for the second chapter.');
+      return;
+    }
+    if (editor.useSecondChapter && chapterId2 === parseInt(editor.chapterId, 10) && slokaCount2 === slokaCount) {
+      setError('The second chapter/sloka selection must differ from the first.');
+      return;
+    }
+    setStagedEntries(current => [...current, {
+      volunteerId: editor.volunteerId,
+      studentName: editor.studentName,
+      date,
+      slotId: parseInt(editor.slotId, 10),
+      chapterId: parseInt(editor.chapterId, 10),
+      slokaCount,
+      ...(editor.useSecondChapter ? { chapterId2, slokaCount2 } : {}),
+    }]);
+    resetEditor();
   };
 
   const deleteBooking = (b: ExistingBooking) => {
@@ -250,11 +318,10 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Date</Text>
-        <TextInput style={styles.dateInput} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" returnKeyType="done" />
+        <TextInput style={styles.dateInput} value={date} onChangeText={changeDate} placeholder="YYYY-MM-DD" returnKeyType="done" />
         <TouchableOpacity style={styles.loadBtn} onPress={load}><Text style={styles.loadBtnText}>Load</Text></TouchableOpacity>
       </View>
 
-      {success ? <View style={styles.successBanner}><Text style={styles.successText}>{success}</Text></View> : null}
       {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text></View> : null}
 
       {loading ? (
@@ -262,106 +329,188 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       ) : (
         <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
 
-          {/* Add Form */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Add Bookings</Text>
-            {entries.map((entry, idx) => (
-              <View key={idx} style={styles.entryCard}>
+            <Text style={styles.sectionTitle}>Booking Track</Text>
+            <View style={styles.chipRow}>
+              {(['MEMORIZATION', 'REVISION'] as TrackType[]).map(track => (
+                <TouchableOpacity
+                  key={track}
+                  style={[styles.chip, trackType === track && styles.chipActive]}
+                  onPress={() => changeTrack(track)}
+                >
+                  <Text style={[styles.chipText, trackType === track && styles.chipTextActive]}>{track}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
-                {/* Student search */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Add Booking</Text>
+            <View style={styles.entryCard}>
                 <Text style={styles.fieldLabel}>Student (VID or Name)</Text>
                 <StudentAutocomplete
-                  selectedVolunteerId={entry.volunteerId}
-                  selectedName={entry.studentName}
-                  onSelect={s => onStudentSelect(idx, s)}
-                  onClear={() => updateEntry(idx, { volunteerId: '', studentName: '', loadedSlokas: [], minNext: null, slokaCount: '' })}
+                  selectedVolunteerId={editor.volunteerId}
+                  selectedName={editor.studentName}
+                  onSelect={onStudentSelect}
+                  onClear={() => {
+                    setEditor(current => ({ ...current, volunteerId: '', studentName: '', slokaCount: '', slokaCount2: '' }));
+                    setAllowedSlokas([]);
+                    setAllowedSlokas2([]);
+                  }}
                 />
-                {entry.studentName ? (
-                  <Text style={styles.resolvedName}>{entry.studentName}</Text>
+                {editor.studentName ? (
+                  <Text style={styles.resolvedName}>{editor.studentName}</Text>
                 ) : null}
 
-                {/* Slot */}
                 <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Slot</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   <View style={styles.chipRow}>
                     {slots.map(s => (
                       <TouchableOpacity
                         key={s.id}
-                        style={[styles.chip, entry.slotId === String(s.id) && styles.chipActive]}
-                        onPress={() => updateEntry(idx, { slotId: String(s.id) })}
+                        style={[styles.chip, editor.slotId === String(s.id) && styles.chipActive]}
+                        onPress={() => setEditor(current => ({ ...current, slotId: String(s.id) }))}
                       >
-                        <Text style={[styles.chipText, entry.slotId === String(s.id) && styles.chipTextActive]}>{s.name}</Text>
+                        <Text style={[styles.chipText, editor.slotId === String(s.id) && styles.chipTextActive]}>{s.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
 
-                {/* Chapter */}
                 <Text style={styles.fieldLabel}>Chapter</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                   <View style={styles.chipRow}>
                     {chapters.map(c => (
                       <TouchableOpacity
                         key={c.id}
-                        style={[styles.chip, entry.chapterId === String(c.id) && styles.chipActive]}
-                        onPress={() => onChapterSelect(idx, String(c.id))}
+                        style={[styles.chip, editor.chapterId === String(c.id) && styles.chipActive]}
+                        onPress={() => onChapterSelect(String(c.id))}
                       >
-                        <Text style={[styles.chipText, entry.chapterId === String(c.id) && styles.chipTextActive]}>Ch {c.chapterNumber}</Text>
+                        <Text style={[styles.chipText, editor.chapterId === String(c.id) && styles.chipTextActive]}>Ch {c.chapterNumber}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
 
-                {/* Slokas */}
-                {entry.chapterId ? (
+                {editor.chapterId ? (
                   <>
                     <Text style={styles.fieldLabel}>Slokas (1–N)</Text>
-                    {entry.slokaLoading ? (
+                    {slokaLoading ? (
                       <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start', marginBottom: 8 }} />
-                    ) : entry.loadedSlokas.length > 0 ? (
+                    ) : allowedSlokas.length > 0 ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                         <View style={styles.chipRow}>
-                          {entry.loadedSlokas.map(n => {
-                            const disabled = entry.minNext !== null && n < entry.minNext;
-                            const active = entry.slokaCount === String(n);
-                            return (
-                              <TouchableOpacity
-                                key={n}
-                                style={[styles.chip, active && styles.chipActive, disabled && styles.chipDisabled]}
-                                onPress={() => !disabled && updateEntry(idx, { slokaCount: String(n) })}
-                                disabled={disabled}
-                              >
-                                <Text style={[styles.chipText, active && styles.chipTextActive, disabled && styles.chipTextDisabled]}>
-                                  1–{n}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
+                          {allowedSlokas.map(n => (
+                            <TouchableOpacity
+                              key={n}
+                              style={[styles.chip, editor.slokaCount === String(n) && styles.chipActive]}
+                              onPress={() => setEditor(current => ({ ...current, slokaCount: String(n) }))}
+                            >
+                              <Text style={[styles.chipText, editor.slokaCount === String(n) && styles.chipTextActive]}>1–{n}</Text>
+                            </TouchableOpacity>
+                          ))}
                         </View>
                       </ScrollView>
                     ) : (
                       <Text style={styles.noSlokasText}>
-                        {entry.volunteerId ? 'No slokas available (check syllabus for this date)' : 'Select a student first to load slokas'}
+                        {slokaError || (editor.volunteerId ? 'No slokas available (check syllabus for this date)' : 'Select a student first to load slokas')}
                       </Text>
                     )}
                   </>
                 ) : null}
 
-                {idx > 0 && (
-                  <TouchableOpacity onPress={() => setEntries(es => es.filter((_, i) => i !== idx))} style={styles.removeBtn}>
-                    <Text style={styles.removeBtnText}>Remove row</Text>
+                <TouchableOpacity
+                  style={styles.secondChapterToggle}
+                  onPress={() => {
+                    if (editor.useSecondChapter) {
+                      slokaRequest2.current += 1;
+                      setAllowedSlokas2([]);
+                      setSlokaError2('');
+                    }
+                    setEditor(current => ({
+                      ...current,
+                      useSecondChapter: !current.useSecondChapter,
+                      chapterId2: '',
+                      slokaCount2: '',
+                    }));
+                  }}
+                >
+                  <Text style={styles.addRowText}>{editor.useSecondChapter ? '− Remove Second Chapter' : '+ Add Second Chapter'}</Text>
+                </TouchableOpacity>
+
+                {editor.useSecondChapter ? (
+                  <View style={styles.secondChapterSection}>
+                    <Text style={styles.fieldLabel}>Chapter 2</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                      <View style={styles.chipRow}>
+                        {chapters.map(c => (
+                          <TouchableOpacity
+                            key={c.id}
+                            style={[styles.chip, editor.chapterId2 === String(c.id) && styles.chipActive]}
+                            onPress={() => onChapterSelect(String(c.id), true)}
+                          >
+                            <Text style={[styles.chipText, editor.chapterId2 === String(c.id) && styles.chipTextActive]}>Ch {c.chapterNumber}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                    {editor.chapterId2 ? (
+                      <>
+                        <Text style={styles.fieldLabel}>Sloka Count 2</Text>
+                        {slokaLoading2 ? (
+                          <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: 'flex-start', marginBottom: 8 }} />
+                        ) : allowedSlokas2.length > 0 ? (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                            <View style={styles.chipRow}>
+                              {allowedSlokas2.map(n => (
+                                <TouchableOpacity
+                                  key={n}
+                                  style={[styles.chip, editor.slokaCount2 === String(n) && styles.chipActive]}
+                                  onPress={() => setEditor(current => ({ ...current, slokaCount2: String(n) }))}
+                                >
+                                  <Text style={[styles.chipText, editor.slokaCount2 === String(n) && styles.chipTextActive]}>1–{n}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </ScrollView>
+                        ) : (
+                          <Text style={styles.noSlokasText}>{slokaError2 || (editor.volunteerId ? 'No slokas available for this chapter' : 'Select a student first to load slokas')}</Text>
+                        )}
+                      </>
+                    ) : null}
+                  </View>
+                ) : null}
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={addToBatch}>
+              <Text style={styles.saveBtnText}>Add to Batch</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Batch ({stagedEntries.length})</Text>
+            {stagedEntries.length === 0 ? <Text style={styles.emptyText}>No bookings added to this batch.</Text> : null}
+            {stagedEntries.map((entry, index) => {
+              const slot = slots.find(item => item.id === entry.slotId);
+              const chapter = chapters.find(item => item.id === entry.chapterId);
+              const chapter2 = chapters.find(item => item.id === entry.chapterId2);
+              return (
+                <View key={`${entry.volunteerId}-${index}`} style={styles.bookingCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bookingName}>{entry.studentName}</Text>
+                    <Text style={styles.bookingMeta}>{entry.volunteerId} • {trackType === 'MEMORIZATION' ? 'Memorization' : 'Revision'}</Text>
+                    <Text style={styles.bookingMeta}>{slot?.name ?? `Slot ${entry.slotId}`}</Text>
+                    <Text style={styles.bookingMeta}>Ch {chapter?.chapterNumber ?? entry.chapterId} — 1–{entry.slokaCount}</Text>
+                    {entry.chapterId2 && entry.slokaCount2 ? (
+                      <Text style={styles.bookingMeta}>Ch {chapter2?.chapterNumber ?? entry.chapterId2} — 1–{entry.slokaCount2}</Text>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity style={styles.delBtn} onPress={() => setStagedEntries(current => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    <Text style={styles.delBtnText}>✕</Text>
                   </TouchableOpacity>
-                )}
-              </View>
-            ))}
-
-            <TouchableOpacity style={styles.addRowBtn} onPress={() => setEntries(es => [...es, emptyEntry()])}>
-              <Text style={styles.addRowText}>+ Add Another Student</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save All</Text>}
-            </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
 
           {/* Existing bookings */}
@@ -397,8 +546,6 @@ const styles = StyleSheet.create({
   dateInput: { flex: 1, borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, padding: spacing.sm, fontSize: 14 },
   loadBtn: { backgroundColor: colors.navy, paddingHorizontal: 16, paddingVertical: 8, borderRadius: borderRadius.md },
   loadBtnText: { color: '#fff', ...fonts.semiBold },
-  successBanner: { backgroundColor: colors.successBg, padding: spacing.sm, paddingHorizontal: spacing.md },
-  successText: { color: colors.successText, fontSize: 13 },
   errorBanner: { backgroundColor: colors.errorBg, padding: spacing.sm, paddingHorizontal: spacing.md },
   errorText: { color: colors.errorText, fontSize: 13 },
   list: { padding: spacing.md, gap: spacing.md, paddingBottom: 40 },
@@ -414,14 +561,11 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: 6 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.borderLight },
   chipActive: { backgroundColor: colors.navy, borderColor: colors.navy },
-  chipDisabled: { backgroundColor: colors.bg, borderColor: colors.borderLight, opacity: 0.4 },
   chipText: { fontSize: 12, color: colors.textBody },
   chipTextActive: { color: '#fff', ...fonts.semiBold },
-  chipTextDisabled: { color: colors.textMuted },
   noSlokasText: { fontSize: 12, color: colors.textMuted, ...fonts.regular, marginBottom: 8, fontStyle: 'italic' },
-  removeBtn: { alignSelf: 'flex-start', marginTop: 4 },
-  removeBtnText: { fontSize: 12, color: colors.errorText },
-  addRowBtn: { backgroundColor: colors.infoBg, borderWidth: 1, borderColor: colors.infoBorder, borderRadius: borderRadius.md, padding: 12, alignItems: 'center' },
+  secondChapterToggle: { backgroundColor: colors.infoBg, borderWidth: 1, borderColor: colors.infoBorder, borderRadius: borderRadius.md, padding: 10, alignItems: 'center', marginTop: 4 },
+  secondChapterSection: { marginTop: 8 },
   addRowText: { color: colors.infoText, ...fonts.semiBold },
   saveBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: borderRadius.lg, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 15, ...fonts.bold },
