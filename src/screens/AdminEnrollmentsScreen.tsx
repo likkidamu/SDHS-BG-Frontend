@@ -21,7 +21,10 @@ import type {
 } from '../features/admin/enrollments/models';
 import {
   approveAdminEnrollment,
+  completeAdminEnrollment,
+  dropActiveAdminEnrollment,
   getAdminEnrollmentManagement,
+  makeAdminEnrollmentDefault,
   rejectAdminEnrollment,
 } from '../features/admin/enrollments/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
@@ -33,6 +36,8 @@ interface ApprovalDraft {
   slotEligible: boolean;
   rejectionReason: string;
 }
+
+type EnrollmentAction = 'approve' | 'reject' | 'default' | 'complete' | 'drop';
 
 const emptyDraft: ApprovalDraft = { groupId: '', slotEligible: false, rejectionReason: '' };
 
@@ -91,7 +96,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [drafts, setDrafts] = useState<Record<number, ApprovalDraft>>({});
   const [working, setWorking] = useState<number | null>(null);
-  const [workingAction, setWorkingAction] = useState<'approve' | 'reject' | null>(null);
+  const [workingAction, setWorkingAction] = useState<EnrollmentAction | null>(null);
   const actionInFlight = useRef(false);
 
   const load = useCallback(async (refresh = false) => {
@@ -110,6 +115,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   const pendingEnrollments = data?.enrollments.enrollments ?? [];
+  const activeEnrollments = data?.enrollments.activeEnrollments ?? [];
   const draftFor = (enrollmentId: number): ApprovalDraft => drafts[enrollmentId] ?? emptyDraft;
   const updateDraft = <K extends keyof ApprovalDraft>(enrollmentId: number, key: K, value: ApprovalDraft[K]) => {
     setDrafts((current) => ({
@@ -169,6 +175,39 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
         }
       } },
     ]);
+  };
+
+  const lifecycleAction = (enrollmentId: number, action: 'default' | 'complete' | 'drop') => {
+    if (actionInFlight.current) return;
+    const labels = { default: 'make this the default', complete: 'complete', drop: 'drop' };
+    Alert.alert(
+      action === 'default' ? 'Make Default Enrollment' : action === 'complete' ? 'Complete Enrollment' : 'Drop Enrollment',
+      `Are you sure you want to ${labels[action]} enrollment?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: action === 'default' ? 'Make Default' : action === 'complete' ? 'Complete' : 'Drop', style: action === 'drop' ? 'destructive' : 'default', onPress: async () => {
+          if (actionInFlight.current) return;
+          actionInFlight.current = true;
+          setWorking(enrollmentId);
+          setWorkingAction(action);
+          setNotice(null);
+          try {
+            if (action === 'default') await makeAdminEnrollmentDefault(enrollmentId);
+            if (action === 'complete') await completeAdminEnrollment(enrollmentId);
+            if (action === 'drop') await dropActiveAdminEnrollment(enrollmentId);
+            const success = action === 'default' ? 'set as default' : action === 'complete' ? 'completed' : 'dropped';
+            setNotice({ type: 'success', message: `Enrollment ${success} successfully.` });
+            await load(true);
+          } catch (requestError: any) {
+            setNotice({ type: 'error', message: errorMessage(requestError, `Unable to ${action} enrollment.`) });
+          } finally {
+            actionInFlight.current = false;
+            setWorking(null);
+            setWorkingAction(null);
+          }
+        } },
+      ],
+    );
   };
 
   return (
@@ -277,6 +316,45 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
               </View>
             </View>
           ))}
+
+          <Text style={styles.sectionTitle}>Active Enrollments</Text>
+          <Text style={styles.countText}>{activeEnrollments.length} active</Text>
+          {activeEnrollments.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No active enrollments</Text>
+              <Text style={styles.emptySubtitle}>Approved learning enrollments will appear here.</Text>
+            </View>
+          ) : activeEnrollments.map((enrollment) => (
+            <View key={enrollment.enrollmentId} style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.identity}>
+                  <Text style={styles.name}>{enrollment.volunteerName}</Text>
+                  <Text style={styles.volunteerId}>{enrollment.volunteerId}</Text>
+                </View>
+                <View style={styles.programBadge}>
+                  <Text style={styles.programBadgeText}>{enrollment.programType}</Text>
+                </View>
+              </View>
+              <View style={styles.activeDetails}>
+                <View style={styles.activeDetailRow}><Text style={styles.activeDetailLabel}>Assigned Group</Text><Text style={styles.activeDetailValue}>{enrollment.groupId ?? '—'}</Text></View>
+                <View style={styles.activeDetailRow}><Text style={styles.activeDetailLabel}>Slot Eligible</Text><Text style={styles.activeDetailValue}>{enrollment.slotEligible ? 'Yes' : 'No'}</Text></View>
+                <View style={styles.activeDetailRow}><Text style={styles.activeDetailLabel}>Default Enrollment</Text><View style={[styles.defaultBadge, enrollment.defaultEnrollment && styles.defaultBadgeActive]}><Text style={[styles.defaultBadgeText, enrollment.defaultEnrollment && styles.defaultBadgeTextActive]}>{enrollment.defaultEnrollment ? 'Yes' : 'No'}</Text></View></View>
+              </View>
+              <View style={styles.lifecycleActions}>
+                {!enrollment.defaultEnrollment ? (
+                  <TouchableOpacity style={[styles.lifecycleButton, styles.defaultButton, working !== null && styles.controlDisabled]} disabled={working !== null} onPress={() => lifecycleAction(enrollment.enrollmentId, 'default')}>
+                    {working === enrollment.enrollmentId && workingAction === 'default' ? <ActivityIndicator size="small" color={colors.navy} /> : <Text style={styles.defaultButtonText}>Make Default</Text>}
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity style={[styles.lifecycleButton, styles.completeButton, working !== null && styles.controlDisabled]} disabled={working !== null} onPress={() => lifecycleAction(enrollment.enrollmentId, 'complete')}>
+                  {working === enrollment.enrollmentId && workingAction === 'complete' ? <ActivityIndicator size="small" color={colors.navy} /> : <Text style={styles.defaultButtonText}>Complete</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.lifecycleButton, styles.rejectButton, working !== null && styles.controlDisabled]} disabled={working !== null} onPress={() => lifecycleAction(enrollment.enrollmentId, 'drop')}>
+                  {working === enrollment.enrollmentId && workingAction === 'drop' ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.actionText}>Drop</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
         </ScrollView>
       )}
     </View>
@@ -341,4 +419,17 @@ const styles = StyleSheet.create({
   rejectButton: { backgroundColor: colors.maroon },
   actionText: { color: colors.white, fontSize: 13, ...fonts.semiBold },
   controlDisabled: { opacity: 0.55 },
+  activeDetails: { borderTopWidth: 1, borderTopColor: colors.borderLight, marginTop: spacing.md, paddingTop: spacing.sm },
+  activeDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, paddingVertical: 7 },
+  activeDetailLabel: { color: colors.textMuted, fontSize: 12 },
+  activeDetailValue: { color: colors.textDark, fontSize: 13, ...fonts.semiBold },
+  defaultBadge: { backgroundColor: colors.borderLight, borderRadius: borderRadius.sm, paddingHorizontal: 9, paddingVertical: 3 },
+  defaultBadgeActive: { backgroundColor: colors.successBg },
+  defaultBadgeText: { color: colors.textMuted, fontSize: 11, ...fonts.bold },
+  defaultBadgeTextActive: { color: colors.successText },
+  lifecycleActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
+  lifecycleButton: { minHeight: 38, borderRadius: borderRadius.sm, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  defaultButton: { backgroundColor: colors.blueBg, borderWidth: 1, borderColor: colors.blueLight },
+  completeButton: { backgroundColor: colors.orangeBg, borderWidth: 1, borderColor: colors.orangeLight },
+  defaultButtonText: { color: colors.navy, fontSize: 12, ...fonts.semiBold },
 });

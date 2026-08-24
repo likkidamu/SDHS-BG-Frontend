@@ -32,3 +32,15 @@ export async function rejectAdminEnrollment(
 ): Promise<void> {
   await api.post(`/admin/enrollments/${enrollmentId}/reject`, request);
 }
+
+export async function makeAdminEnrollmentDefault(enrollmentId: number): Promise<void> {
+  await api.post(`/admin/enrollments/${enrollmentId}/default`);
+}
+
+export async function completeAdminEnrollment(enrollmentId: number): Promise<void> {
+  await api.post(`/admin/enrollments/${enrollmentId}/complete`);
+}
+
+export async function dropActiveAdminEnrollment(enrollmentId: number): Promise<void> {
+  await api.post(`/admin/enrollments/${enrollmentId}/drop`);
+}
