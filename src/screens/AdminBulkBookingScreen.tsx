@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Alert,
+  TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
@@ -11,6 +11,7 @@ import {
   deleteAdminBulkBooking,
   getAdminAllowedSlokas,
   getAdminBulkBooking,
+  saveAdminBulkBookings,
   searchAdminBookingStudents,
 } from '../features/admin/bulkBooking/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +33,12 @@ interface StagedBooking extends BulkBookingEntry {
   studentName: string;
 }
 
+interface Notice {
+  type: 'success' | 'error';
+  summary: string;
+  messages?: string[];
+}
+
 function currentOrNextSunday() {
   const d = new Date();
   d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
@@ -45,6 +52,31 @@ const emptyEditor = (): BookingEditor => ({
   volunteerId: '', studentName: '', slotId: '', chapterId: '', slokaCount: '',
   useSecondChapter: false, chapterId2: '', slokaCount2: '',
 });
+
+function isSupplementalChapter(chapterName?: string) {
+  return chapterName === 'Dhyana Slokas' || chapterName === 'Gita Mahatyam';
+}
+
+function existingChapterLabel(booking: ExistingBooking) {
+  if (isSupplementalChapter(booking.chapterName)) return booking.chapterName;
+  const label = [booking.chapterNumber, booking.chapterName].filter(value => value !== undefined && value !== null && value !== '').join(' ');
+  return label || '-';
+}
+
+function apiErrorMessage(error: any, fallback: string) {
+  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
+}
+
+function failedStagedEntries(entries: StagedBooking[], messages: string[], failed: number) {
+  const remaining = [...entries];
+  const failures: StagedBooking[] = [];
+  messages.forEach((message) => {
+    const volunteerId = message.split(':', 1)[0]?.trim();
+    const index = remaining.findIndex(entry => entry.volunteerId.toUpperCase() === volunteerId?.toUpperCase());
+    if (index >= 0) failures.push(...remaining.splice(index, 1));
+  });
+  return failures.length === failed ? failures : entries;
+}
 
 // ---- Student autocomplete ----
 function StudentAutocomplete({
@@ -173,21 +205,30 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
   const [slokaError, setSlokaError] = useState('');
   const [slokaError2, setSlokaError2] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingBookingId, setDeletingBookingId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [notice, setNotice] = useState<Notice | null>(null);
   const slokaRequest = useRef(0);
   const slokaRequest2 = useRef(0);
+  const saveInProgress = useRef(false);
+  const deleteInProgress = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showLoading = true) => {
     if (!date) return;
     try {
-      setLoading(true); setError('');
+      if (showLoading) setLoading(true);
+      setLoadError('');
       const response = await getAdminBulkBooking(date);
       setSlots(response.slots);
       setChapters(response.chapters);
       setBookings(response.bookings);
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Failed to load');
-    } finally { setLoading(false); }
+      setLoadError(apiErrorMessage(e, 'Failed to load bulk booking.'));
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, [date]);
 
   useEffect(() => { load(); }, [load]);
@@ -249,7 +290,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     setTrackType(track);
     setStagedEntries([]);
     resetEditor();
-    setError('');
+    setNotice(null);
   };
 
   const changeDate = (value: string) => {
@@ -259,32 +300,32 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
   };
 
   const addToBatch = () => {
-    setError('');
+    setNotice(null);
     if (!trackType) {
-      setError('Track Type is required.');
+      setNotice({ type: 'error', summary: 'Track Type is required.' });
       return;
     }
     if (!editor.volunteerId || !editor.slotId || !editor.chapterId || !editor.slokaCount) {
-      setError('Student, slot, chapter, and sloka count are required.');
+      setNotice({ type: 'error', summary: 'Student, slot, chapter, and sloka count are required.' });
       return;
     }
     const slokaCount = parseInt(editor.slokaCount, 10);
     if (!allowedSlokas.includes(slokaCount)) {
-      setError(allowedSlokas.length ? `Allowed sloka counts: ${allowedSlokas.join(', ')}` : 'No allowed sloka count is available.');
+      setNotice({ type: 'error', summary: allowedSlokas.length ? `Allowed sloka counts: ${allowedSlokas.join(', ')}` : 'No allowed sloka count is available.' });
       return;
     }
     if (editor.useSecondChapter && (!editor.chapterId2 || !editor.slokaCount2)) {
-      setError('Second chapter and sloka count are required.');
+      setNotice({ type: 'error', summary: 'Second chapter and sloka count are required.' });
       return;
     }
     const chapterId2 = editor.chapterId2 ? parseInt(editor.chapterId2, 10) : undefined;
     const slokaCount2 = editor.slokaCount2 ? parseInt(editor.slokaCount2, 10) : undefined;
     if (editor.useSecondChapter && slokaCount2 !== undefined && !allowedSlokas2.includes(slokaCount2)) {
-      setError(allowedSlokas2.length ? `Allowed second-chapter sloka counts: ${allowedSlokas2.join(', ')}` : 'No allowed sloka count is available for the second chapter.');
+      setNotice({ type: 'error', summary: allowedSlokas2.length ? `Allowed second-chapter sloka counts: ${allowedSlokas2.join(', ')}` : 'No allowed sloka count is available for the second chapter.' });
       return;
     }
     if (editor.useSecondChapter && chapterId2 === parseInt(editor.chapterId, 10) && slokaCount2 === slokaCount) {
-      setError('The second chapter/sloka selection must differ from the first.');
+      setNotice({ type: 'error', summary: 'The second chapter/sloka selection must differ from the first.' });
       return;
     }
     setStagedEntries(current => [...current, {
@@ -299,12 +340,70 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     resetEditor();
   };
 
+  const saveBatch = async () => {
+    if (saveInProgress.current || stagedEntries.length === 0 || !trackType) return;
+    saveInProgress.current = true;
+    const submittedEntries = [...stagedEntries];
+    setSaving(true);
+    setNotice(null);
+    try {
+      const response = await saveAdminBulkBookings({
+        trackType,
+        entries: submittedEntries.map(entry => ({
+          volunteerId: entry.volunteerId,
+          date: entry.date,
+          slotId: entry.slotId,
+          chapterId: entry.chapterId,
+          slokaCount: entry.slokaCount,
+          ...(entry.chapterId2 !== undefined ? { chapterId2: entry.chapterId2 } : {}),
+          ...(entry.slokaCount2 !== undefined ? { slokaCount2: entry.slokaCount2 } : {}),
+        })),
+      });
+      setNotice({
+        type: response.failed > 0 ? 'error' : 'success',
+        summary: `${response.saved} saved, ${response.failed} failed.`,
+        messages: response.messages,
+      });
+      if (response.saved === submittedEntries.length) {
+        setStagedEntries([]);
+      } else if (response.failed > 0) {
+        setStagedEntries(failedStagedEntries(submittedEntries, response.messages, response.failed));
+      }
+      await load(false);
+    } catch (saveError: any) {
+      setNotice({ type: 'error', summary: apiErrorMessage(saveError, 'Failed to save bookings.') });
+    } finally {
+      saveInProgress.current = false;
+      setSaving(false);
+    }
+  };
+
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    await load(false);
+    setRefreshing(false);
+  };
+
   const deleteBooking = (b: ExistingBooking) => {
+    if (deletingBookingId !== null) return;
     Alert.alert('Delete', `Delete booking for ${b.studentName}?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteAdminBulkBooking({ bookingId: b.id }); load(); }
-        catch (e: any) { Alert.alert('Error', e.response?.data?.error || 'Failed'); }
+        if (deleteInProgress.current) return;
+        deleteInProgress.current = true;
+        setDeletingBookingId(b.id);
+        setNotice(null);
+        try {
+          const response = await deleteAdminBulkBooking({ bookingId: b.id });
+          setNotice({ type: 'success', summary: response.message });
+          await load(false);
+        } catch (deleteError: any) {
+          setNotice({ type: 'error', summary: apiErrorMessage(deleteError, 'Failed to delete booking.') });
+        } finally {
+          deleteInProgress.current = false;
+          setDeletingBookingId(null);
+        }
       }},
     ]);
   };
@@ -319,15 +418,34 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Date</Text>
         <TextInput style={styles.dateInput} value={date} onChangeText={changeDate} placeholder="YYYY-MM-DD" returnKeyType="done" />
-        <TouchableOpacity style={styles.loadBtn} onPress={load}><Text style={styles.loadBtnText}>Load</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.loadBtn} onPress={() => void load()}><Text style={styles.loadBtnText}>Load</Text></TouchableOpacity>
       </View>
 
-      {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text></View> : null}
+      {notice ? (
+        <View style={notice.type === 'success' ? styles.successBanner : styles.errorBanner}>
+          <Text style={notice.type === 'success' ? styles.successText : styles.errorText}>{notice.summary}</Text>
+          {notice.messages?.map((message, index) => (
+            <Text key={`${message}-${index}`} style={notice.type === 'success' ? styles.successText : styles.errorText}>{message}</Text>
+          ))}
+        </View>
+      ) : null}
+      {loadError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />}
+        >
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Booking Track</Text>
@@ -511,6 +629,13 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                 </View>
               );
             })}
+            <TouchableOpacity
+              style={[styles.saveBtn, (saving || stagedEntries.length === 0) && styles.buttonDisabled]}
+              onPress={() => void saveBatch()}
+              disabled={saving || stagedEntries.length === 0}
+            >
+              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save Bookings</Text>}
+            </TouchableOpacity>
           </View>
 
           {/* Existing bookings */}
@@ -521,12 +646,18 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
               <View key={b.id} style={styles.bookingCard}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bookingName}>{b.studentName}</Text>
-                  <Text style={styles.bookingMeta}>{b.volunteerId} • {b.slotName}</Text>
-                  <Text style={styles.bookingMeta}>Ch {b.chapterNumber}: {b.chapterName} — 1–{b.slokaCount}</Text>
-                  {b.assignedTeacherName ? <Text style={styles.bookingMeta}>Teacher: {b.assignedTeacherName}</Text> : null}
+                  <Text style={styles.bookingMeta}>{b.volunteerId} • {b.slotName ?? '-'}</Text>
+                  <Text style={styles.bookingMeta}>{existingChapterLabel(b)} — {b.slokaCount === null ? '-' : `1–${b.slokaCount}`}</Text>
+                  <Text style={styles.bookingMeta}>Teacher: {b.assignedTeacherName ?? '-'}</Text>
                 </View>
-                <TouchableOpacity style={styles.delBtn} onPress={() => deleteBooking(b)}>
-                  <Text style={styles.delBtnText}>✕</Text>
+                <TouchableOpacity
+                  style={[styles.delBtn, deletingBookingId !== null && styles.buttonDisabled]}
+                  onPress={() => deleteBooking(b)}
+                  disabled={deletingBookingId !== null}
+                >
+                  {deletingBookingId === b.id
+                    ? <ActivityIndicator size="small" color={colors.errorText} />
+                    : <Text style={styles.delBtnText}>✕</Text>}
                 </TouchableOpacity>
               </View>
             ))}
@@ -546,8 +677,12 @@ const styles = StyleSheet.create({
   dateInput: { flex: 1, borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, padding: spacing.sm, fontSize: 14 },
   loadBtn: { backgroundColor: colors.navy, paddingHorizontal: 16, paddingVertical: 8, borderRadius: borderRadius.md },
   loadBtnText: { color: '#fff', ...fonts.semiBold },
+  successBanner: { backgroundColor: colors.successBg, padding: spacing.sm, paddingHorizontal: spacing.md, gap: 2 },
+  successText: { color: colors.successText, fontSize: 13 },
   errorBanner: { backgroundColor: colors.errorBg, padding: spacing.sm, paddingHorizontal: spacing.md },
   errorText: { color: colors.errorText, fontSize: 13 },
+  retryBtn: { alignSelf: 'flex-start', marginTop: 6, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.errorText, borderRadius: borderRadius.sm },
+  retryText: { color: colors.errorText, fontSize: 12, ...fonts.semiBold },
   list: { padding: spacing.md, gap: spacing.md, paddingBottom: 40 },
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: 14, color: colors.textDark, ...fonts.bold, marginBottom: 4 },
@@ -569,6 +704,7 @@ const styles = StyleSheet.create({
   addRowText: { color: colors.infoText, ...fonts.semiBold },
   saveBtn: { backgroundColor: colors.primary, padding: 14, borderRadius: borderRadius.lg, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 15, ...fonts.bold },
+  buttonDisabled: { opacity: 0.55 },
   bookingCard: { flexDirection: 'row', backgroundColor: colors.white, borderRadius: borderRadius.md, padding: spacing.sm, ...shadows.card, alignItems: 'center' },
   bookingName: { fontSize: 14, color: colors.textDark, ...fonts.semiBold },
   bookingMeta: { fontSize: 12, color: colors.textMuted },

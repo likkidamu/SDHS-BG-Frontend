@@ -1,8 +1,8 @@
 import api from '../../../services/api';
 import type {
   AllowedSlokasResponse,
-  BulkBookingEntry,
   BulkBookingResponse,
+  BulkBookingSaveRequest,
   BulkBookingSaveResponse,
   DeleteBookingRequest,
   DeleteBookingResponse,
@@ -34,12 +34,10 @@ export async function getAdminAllowedSlokas(
   return response.data;
 }
 
-export async function saveLegacyAdminBulkBookings(
-  entries: BulkBookingEntry[],
+export async function saveAdminBulkBookings(
+  request: BulkBookingSaveRequest,
 ): Promise<BulkBookingSaveResponse> {
-  const response = await api.post<BulkBookingSaveResponse>('/admin/bulk-booking/save', {
-    entries,
-  });
+  const response = await api.post<BulkBookingSaveResponse>('/admin/bulk-booking/save', request);
   return response.data;
 }
 
