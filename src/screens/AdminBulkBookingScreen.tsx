@@ -6,17 +6,19 @@ import {
 import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import type { Chapter, ExistingBooking, Slot, StudentSearchResult } from '../features/admin/bulkBooking/models';
+import {
+  deleteAdminBulkBooking,
+  getAdminAllowedSlokas,
+  getAdminBulkBooking,
+  saveLegacyAdminBulkBookings,
+  searchAdminBookingStudents,
+} from '../features/admin/bulkBooking/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
-interface StudentOption { volunteerId: string; name: string; }
-interface SlotOption { id: number; name: string; }
-interface ChapterOption { id: number; chapterNumber: number; chapterName: string; allowedSlokas: string; }
-interface Booking { id: number; volunteerId: string; studentName: string; slotId: number; slotName: string; chapterId: number; chapterNumber: number; chapterName: string; slokaCount: number; assignedTeacherName: string; }
-
-interface BookingEntry {
+interface BookingDraft {
   volunteerId: string;
   studentName: string;
   slotId: string;
@@ -33,53 +35,96 @@ function nextSunday() {
   return d.toISOString().split('T')[0];
 }
 
-const emptyEntry = (): BookingEntry => ({
+const emptyEntry = (): BookingDraft => ({
   volunteerId: '', studentName: '', slotId: '', chapterId: '', slokaCount: '',
   loadedSlokas: [], minNext: null, slokaLoading: false,
 });
 
 // ---- Student autocomplete ----
 function StudentAutocomplete({
-  value, students, onSelect,
+  selectedVolunteerId, selectedName, onSelect, onClear,
 }: {
-  value: string;
-  students: StudentOption[];
-  onSelect: (s: StudentOption) => void;
+  selectedVolunteerId: string;
+  selectedName: string;
+  onSelect: (student: StudentSearchResult) => void;
+  onClear: () => void;
 }) {
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<StudentSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const requestSequence = useRef(0);
 
-  useEffect(() => { setQuery(value); }, [value]);
+  useEffect(() => {
+    if (selectedVolunteerId) setQuery(`${selectedName} (${selectedVolunteerId})`);
+  }, [selectedName, selectedVolunteerId]);
 
-  const suggestions = query.length >= 1
-    ? students.filter(s =>
-        s.volunteerId.toUpperCase().includes(query.toUpperCase()) ||
-        s.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 6)
-    : [];
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    const sequence = requestSequence.current + 1;
+    requestSequence.current = sequence;
+    if (selectedVolunteerId || normalizedQuery.length < 2) {
+      setResults([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const timeout = setTimeout(() => {
+      void searchAdminBookingStudents(normalizedQuery)
+        .then((students) => {
+          if (requestSequence.current === sequence) {
+            setResults(students);
+            setOpen(true);
+          }
+        })
+        .catch((requestError: any) => {
+          if (requestSequence.current === sequence) {
+            setResults([]);
+            setError(requestError.response?.data?.error ?? requestError.response?.data?.message ?? 'Unable to search students.');
+          }
+        })
+        .finally(() => {
+          if (requestSequence.current === sequence) setLoading(false);
+        });
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [query, selectedVolunteerId]);
 
   return (
     <View style={{ position: 'relative', zIndex: 10 }}>
       <TextInput
         style={styles.fieldInput}
         value={query}
-        onChangeText={v => { setQuery(v.toUpperCase()); setOpen(true); }}
+        onChangeText={(value) => {
+          if (selectedVolunteerId) onClear();
+          setQuery(value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
         autoCapitalize="characters"
         placeholder="Type VID or name…"
         returnKeyType="done"
         onSubmitEditing={() => setOpen(false)}
       />
-      {open && suggestions.length > 0 && (
+      <Text style={styles.searchHelp}>Enter at least 2 characters.</Text>
+      {loading ? <Text style={styles.searchStatus}>Searching students...</Text> : null}
+      {error ? <Text style={styles.searchError}>{error}</Text> : null}
+      {open && results.length > 0 && (
         <View style={ac.dropdown}>
-          {suggestions.map(s => (
+          {results.map((student) => (
             <TouchableOpacity
-              key={s.volunteerId}
+              key={student.volunteerId}
               style={ac.item}
-              onPress={() => { onSelect(s); setQuery(s.volunteerId); setOpen(false); }}
+              onPress={() => { onSelect(student); setQuery(`${student.name} (${student.volunteerId})`); setResults([]); setError(''); setOpen(false); }}
             >
-              <Text style={ac.vid}>{s.volunteerId}</Text>
-              <Text style={ac.name}>{s.name}</Text>
+              <Text style={ac.vid}>{student.volunteerId}</Text>
+              <View style={ac.identity}>
+                <Text style={ac.name}>{student.name}</Text>
+                {student.groupId ? <Text style={ac.group}>{student.groupId}</Text> : null}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -102,16 +147,17 @@ const ac = StyleSheet.create({
   },
   vid: { fontSize: 12, ...fonts.bold, color: colors.navy, minWidth: 72 },
   name: { fontSize: 13, ...fonts.regular, color: colors.textBody, flex: 1 },
+  identity: { flex: 1 },
+  group: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 });
 
 export default function AdminBulkBookingScreen({ navigation }: Props) {
   const { logout } = useAuth();
   const [date, setDate] = useState(nextSunday());
-  const [students, setStudents] = useState<StudentOption[]>([]);
-  const [slots, setSlots] = useState<SlotOption[]>([]);
-  const [chapters, setChapters] = useState<ChapterOption[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [entries, setEntries] = useState<BookingEntry[]>([emptyEntry()]);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [bookings, setBookings] = useState<ExistingBooking[]>([]);
+  const [entries, setEntries] = useState<BookingDraft[]>([emptyEntry()]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -121,11 +167,10 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     if (!date) return;
     try {
       setLoading(true); setError(''); setSuccess('');
-      const res = await api.get('/admin/bulk-booking', { params: { date } });
-      setStudents(res.data.students || []);
-      setSlots(res.data.slots || []);
-      setChapters(res.data.chapters || []);
-      setBookings(res.data.bookings || []);
+      const response = await getAdminBulkBooking(date);
+      setSlots(response.slots);
+      setChapters(response.chapters);
+      setBookings(response.bookings);
       setEntries([emptyEntry()]);
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load');
@@ -134,7 +179,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateEntry = (idx: number, patch: Partial<BookingEntry>) => {
+  const updateEntry = (idx: number, patch: Partial<BookingDraft>) => {
     setEntries(es => es.map((e, i) => i === idx ? { ...e, ...patch } : e));
   };
 
@@ -145,12 +190,10 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     }
     updateEntry(idx, { slokaLoading: true, loadedSlokas: [], slokaCount: '' });
     try {
-      const res = await api.get('/admin/allowed-slokas', {
-        params: { volunteerId, date, chapterId: parseInt(chapterId) },
-      });
+      const response = await getAdminAllowedSlokas(volunteerId, date, parseInt(chapterId, 10));
       updateEntry(idx, {
-        loadedSlokas: res.data.allowed ?? [],
-        minNext: res.data.minNext ?? null,
+        loadedSlokas: response.allowed,
+        minNext: response.minNext ?? null,
         slokaLoading: false,
       });
     } catch {
@@ -158,7 +201,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     }
   };
 
-  const onStudentSelect = (idx: number, s: StudentOption) => {
+  const onStudentSelect = (idx: number, s: StudentSearchResult) => {
     const entry = entries[idx];
     updateEntry(idx, { volunteerId: s.volunteerId, studentName: s.name });
     if (entry.chapterId) fetchSlokas(idx, s.volunteerId, entry.chapterId);
@@ -175,14 +218,12 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     if (valid.length === 0) { Alert.alert('Nothing to save', 'Fill in at least one row.'); return; }
     setSaving(true); setError(''); setSuccess('');
     try {
-      const res = await api.post('/admin/bulk-booking/save', {
-        entries: valid.map(e => ({
-          volunteerId: e.volunteerId, date,
-          slotId: parseInt(e.slotId), chapterId: parseInt(e.chapterId), slokaCount: parseInt(e.slokaCount),
-        }))
-      });
-      setSuccess(`${res.data.saved} saved, ${res.data.failed} failed.`);
-      if (res.data.messages?.length) setError(res.data.messages.join(' | '));
+      const response = await saveLegacyAdminBulkBookings(valid.map(e => ({
+        volunteerId: e.volunteerId, date,
+        slotId: parseInt(e.slotId, 10), chapterId: parseInt(e.chapterId, 10), slokaCount: parseInt(e.slokaCount, 10),
+      })));
+      setSuccess(`${response.saved} saved, ${response.failed} failed.`);
+      if (response.messages.length) setError(response.messages.join(' | '));
       setEntries([emptyEntry()]);
       load();
     } catch (e: any) {
@@ -190,11 +231,11 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     } finally { setSaving(false); }
   };
 
-  const deleteBooking = (b: Booking) => {
+  const deleteBooking = (b: ExistingBooking) => {
     Alert.alert('Delete', `Delete booking for ${b.studentName}?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await api.post('/admin/bulk-booking/delete', { bookingId: b.id }); load(); }
+        try { await deleteAdminBulkBooking({ bookingId: b.id }); load(); }
         catch (e: any) { Alert.alert('Error', e.response?.data?.error || 'Failed'); }
       }},
     ]);
@@ -230,9 +271,10 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                 {/* Student search */}
                 <Text style={styles.fieldLabel}>Student (VID or Name)</Text>
                 <StudentAutocomplete
-                  value={entry.volunteerId}
-                  students={students}
+                  selectedVolunteerId={entry.volunteerId}
+                  selectedName={entry.studentName}
                   onSelect={s => onStudentSelect(idx, s)}
+                  onClear={() => updateEntry(idx, { volunteerId: '', studentName: '', loadedSlokas: [], minNext: null, slokaCount: '' })}
                 />
                 {entry.studentName ? (
                   <Text style={styles.resolvedName}>{entry.studentName}</Text>
@@ -365,6 +407,9 @@ const styles = StyleSheet.create({
   entryCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.card, gap: 4 },
   fieldLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 3, ...fonts.medium },
   fieldInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.sm, padding: 8, fontSize: 13, marginBottom: 4 },
+  searchHelp: { color: colors.textMuted, fontSize: 10, marginBottom: 3 },
+  searchStatus: { color: colors.infoText, fontSize: 11, marginBottom: 3 },
+  searchError: { color: colors.errorText, fontSize: 11, marginBottom: 3 },
   resolvedName: { fontSize: 12, color: colors.primary, ...fonts.semiBold, marginBottom: 6 },
   chipRow: { flexDirection: 'row', gap: 6 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.sm, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.borderLight },
