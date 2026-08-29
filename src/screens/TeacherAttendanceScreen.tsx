@@ -18,9 +18,9 @@ import {
   getTeacherAttendance,
   saveTeacherAttendance,
 } from '../features/teacher/attendance/service';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { TeacherScreenProps } from '../navigation/types';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = TeacherScreenProps<'TeacherAttendance'>;
 
 function getSunday(date: Date): Date {
   const d = new Date(date);

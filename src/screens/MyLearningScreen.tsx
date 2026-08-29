@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { AlertBox, Footer, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -22,7 +22,7 @@ import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollment
 import { getLearningEnrollments } from '../features/enrollment/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
 
-type Props = NativeStackScreenProps<any, 'MyLearning'>;
+type Props = StudentScreenProps<'MyLearning'>;
 
 const SECTIONS: ReadonlyArray<{ status: EnrollmentStatus; title: string }> = [
   { status: 'ACTIVE', title: 'Active Learning' },

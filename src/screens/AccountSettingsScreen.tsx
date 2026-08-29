@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SharedScreenProps } from '../navigation/types';
 import { AlertBox, AsyncState, ContentCard, Footer, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { AccountProfile } from '../features/account/models';
@@ -18,7 +18,7 @@ import { validateAccountContact } from '../features/account/validation';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = SharedScreenProps<'AccountSettings'>;
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (

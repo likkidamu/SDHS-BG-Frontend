@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { AlertBox, ContentCard, TopNavbar } from '../components';
 import type { ProgramType } from '../features/enrollment/models';
 import type { EnrollmentProgramOption } from '../features/student/enrollmentRequest/models';
@@ -14,7 +14,7 @@ import { createStudentEnrollment } from '../features/student/enrollmentRequest/s
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = StudentScreenProps<'StudentNewEnrollment'>;
 
 const PROGRAMS: ReadonlyArray<EnrollmentProgramOption> = [
   { value: 'FLUENT', label: 'Fluent Reading' },

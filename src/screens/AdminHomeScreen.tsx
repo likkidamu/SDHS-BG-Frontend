@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 import { ActionGrid, AlertBox, ContentCard, Footer, StatCard, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { AdminDashboardData, AdminDashboardVolunteer } from '../features/admin/dashboard/models';
@@ -19,7 +19,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 
 const bgAdmin = require('../../assets/bg_admin.png');
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminHome'>;
 
 function formatDate(value: string | null): string {
   if (!value) return 'Date unavailable';

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { TeacherScreenProps } from '../navigation/types';
 import { ActionGrid, AlertBox, ContentCard, Footer, StatCard, TopNavbar, WelcomeCard } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { TeacherGradingBooking } from '../features/teacher/grading/models';
@@ -18,7 +18,7 @@ import { getTeacherHome } from '../features/teacher/home/service';
 import { colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = TeacherScreenProps<'TeacherHome'>;
 
 function todayIsoDate(): string {
   const today = new Date();

@@ -12,7 +12,7 @@ import {
 import { TopNavbar, AlertBox, ContentCard, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { enrollmentProgram, enrollmentStatus, type LearningEnrollment } from '../features/enrollment/models';
 import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollmentContext';
 import { getLearningEnrollments } from '../features/enrollment/service';
@@ -28,7 +28,7 @@ import {
 } from '../features/student/booking/service';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = StudentScreenProps<'StudentSlots'>;
 
 function getEnrollmentId(enrollment: LearningEnrollment) {
   return enrollment.enrollmentId ?? enrollment.id;

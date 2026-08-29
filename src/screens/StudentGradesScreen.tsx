@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { ContentCard, Footer, GradeBadge, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -15,7 +15,7 @@ import { getStudentExamHistory } from '../features/student/examHistory/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = StudentScreenProps<'StudentGrades'>;
 
 const PROGRAM_LABELS: Record<ProgramType, string> = {
   MEMORIZATION: 'Memorization', REVISION: 'Revision', FLUENT: 'Fluent Reading',

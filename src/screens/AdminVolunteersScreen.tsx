@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Modal, RefreshControl, ScrollView, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 import { AlertBox, StatCard, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type {
@@ -15,7 +15,7 @@ import {
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminVolunteers'>;
 type VolunteerAction = 'edit' | 'drop' | 'reactivate';
 type Notice = { type: 'success' | 'error'; message: string };
 

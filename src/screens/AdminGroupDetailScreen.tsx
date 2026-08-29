@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { TopNavbar, Footer } from '../components';
 import { colors, fonts, borderRadius, shadows } from '../theme';
 import api from '../services/api';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 
 interface Volunteer {
   volunteerId: string;
@@ -14,7 +14,7 @@ interface Volunteer {
   createdAt: string | null;
 }
 
-type Props = NativeStackScreenProps<any, any>;
+type Props = AdminScreenProps<'AdminGroupDetail'>;
 
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -81,7 +81,7 @@ const row = StyleSheet.create({
 });
 
 export default function AdminGroupDetailScreen({ navigation, route }: Props) {
-  const { groupId, groupName } = route.params as { groupId: string; groupName: string | null };
+  const { groupId, groupName } = route.params;
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

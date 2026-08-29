@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { ActionGrid, AlertBox, ContentCard, Footer, StatCard, TopNavbar, WelcomeCard } from '../components';
 import { useAuth } from '../context/AuthContext';
 import { enrollmentProgram, enrollmentStatus, type LearningEnrollment, type ProgramType } from '../features/enrollment/models';
@@ -10,7 +10,7 @@ import type { StudentDashboardResponse } from '../features/student/dashboard/mod
 import { getStudentDashboard } from '../features/student/dashboard/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = StudentScreenProps<'StudentDashboard'>;
 
 const PROGRAM_LABELS: Record<ProgramType, string> = {
   MEMORIZATION: 'Bhagavad Gita Memorization Program',

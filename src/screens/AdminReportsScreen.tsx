@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 import { AsyncState, ContentCard, Footer, StatCard, TopNavbar } from '../components';
 import type { AttendanceConfigurationGroup } from '../features/admin/enrollments/models';
 import type { AdminReportsData } from '../features/admin/reports/models';
@@ -16,7 +16,7 @@ import type { AdminVolunteer } from '../features/admin/volunteers/models';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminReports'>;
 
 function countStudents(students: AdminVolunteer[], groupId: string, trackType?: string): number {
   return students.filter(

@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { TeacherScreenProps } from '../navigation/types';
 import { AlertBox, ContentCard, Footer, StatCard, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { TeacherAvailabilityResponse } from '../features/teacher/availability/models';
@@ -19,7 +19,7 @@ import {
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = TeacherScreenProps<'TeacherAvailability'>;
 type Notice = { type: 'success' | 'error'; message: string };
 
 export default function TeacherAvailabilityScreen({ navigation }: Props) {

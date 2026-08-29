@@ -7,9 +7,9 @@ import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminAttendanceConfig'>;
 
 interface GroupConfig { groupId: string; groupName: string; startDate: string; endDate: string; status: string; }
 

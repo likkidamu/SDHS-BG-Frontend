@@ -10,7 +10,7 @@ import {
 import { TopNavbar, StatCard, ContentCard, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StudentScreenProps } from '../navigation/types';
 import { enrollmentProgram, enrollmentStatus, type LearningEnrollment, type ProgramType } from '../features/enrollment/models';
 import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollmentContext';
 import { getLearningEnrollments } from '../features/enrollment/service';
@@ -18,7 +18,7 @@ import type { StudentAttendanceRecord, StudentAttendanceResponse } from '../feat
 import { getStudentAttendance } from '../features/student/attendance/service';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = StudentScreenProps<'StudentAttendance'>;
 
 const PROGRAM_LABELS: Record<ProgramType, string> = {
   MEMORIZATION: 'Memorization',

@@ -20,7 +20,7 @@ import {
   updateTeacherGrade,
 } from '../features/teacher/grading/service';
 import { getApiErrorMessage } from '../utils/apiError';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { TeacherScreenProps } from '../navigation/types';
 
 type BookingEdits = {
   memorizationGrade: string;
@@ -33,7 +33,7 @@ type RowFeedback = {
   message: string;
 };
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = TeacherScreenProps<'TeacherDashboard'>;
 
 function chapterLabel(booking: TeacherGradingBooking): string {
   if (booking.chapterName === 'Dhyana Slokas' || booking.chapterName === 'Gita Mahatyam') {

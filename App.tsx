@@ -32,8 +32,17 @@ import AdminReportsScreen from './src/screens/AdminReportsScreen';
 import AdminGroupDetailScreen from './src/screens/AdminGroupDetailScreen';
 import AccountSettingsScreen from './src/screens/AccountSettingsScreen';
 import StudentNewEnrollmentScreen from './src/screens/StudentNewEnrollmentScreen';
+import type {
+  AdminStackParamList,
+  AuthenticationStackParamList,
+  StudentStackParamList,
+  TeacherStackParamList,
+} from './src/navigation/types';
 
-const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator<AuthenticationStackParamList>();
+const StudentStack = createNativeStackNavigator<StudentStackParamList>();
+const TeacherStack = createNativeStackNavigator<TeacherStackParamList>();
+const AdminStack = createNativeStackNavigator<AdminStackParamList>();
 
 function AppNavigator() {
   const { user, isLoading, logout } = useAuth();
@@ -49,58 +58,58 @@ function AppNavigator() {
   // Not logged in
   if (!user) {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-      </Stack.Navigator>
+      <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+        <AuthStack.Screen name="Login" component={LoginScreen} />
+      </AuthStack.Navigator>
     );
   }
 
   // Role-based navigation
   if (user.role === 'ADMIN') {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="AdminHome" component={AdminHomeScreen} />
-        <Stack.Screen name="AdminSyllabus" component={AdminSyllabusScreen} />
-        <Stack.Screen name="AdminTeacherAvailability" component={AdminTeacherAvailabilityScreen} />
-        <Stack.Screen name="AdminBulkBooking" component={AdminBulkBookingScreen} />
-        <Stack.Screen name="AdminTeachersDashboard" component={AdminTeachersDashboardScreen} />
-        <Stack.Screen name="AdminEnrollments" component={AdminEnrollmentsScreen} />
-        <Stack.Screen name="AdminVolunteers" component={AdminVolunteersScreen} />
-        <Stack.Screen name="AdminVolunteerAnalytics" component={AdminVolunteerAnalyticsScreen} />
-        <Stack.Screen name="AdminAttendanceConfig" component={AdminAttendanceConfigScreen} />
-        <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
-        <Stack.Screen name="AdminGroupDetail" component={AdminGroupDetailScreen} />
-        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      </Stack.Navigator>
+      <AdminStack.Navigator screenOptions={{ headerShown: false }}>
+        <AdminStack.Screen name="AdminHome" component={AdminHomeScreen} />
+        <AdminStack.Screen name="AdminSyllabus" component={AdminSyllabusScreen} />
+        <AdminStack.Screen name="AdminTeacherAvailability" component={AdminTeacherAvailabilityScreen} />
+        <AdminStack.Screen name="AdminBulkBooking" component={AdminBulkBookingScreen} />
+        <AdminStack.Screen name="AdminTeachersDashboard" component={AdminTeachersDashboardScreen} />
+        <AdminStack.Screen name="AdminEnrollments" component={AdminEnrollmentsScreen} />
+        <AdminStack.Screen name="AdminVolunteers" component={AdminVolunteersScreen} />
+        <AdminStack.Screen name="AdminVolunteerAnalytics" component={AdminVolunteerAnalyticsScreen} />
+        <AdminStack.Screen name="AdminAttendanceConfig" component={AdminAttendanceConfigScreen} />
+        <AdminStack.Screen name="AdminReports" component={AdminReportsScreen} />
+        <AdminStack.Screen name="AdminGroupDetail" component={AdminGroupDetailScreen} />
+        <AdminStack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+        <AdminStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      </AdminStack.Navigator>
     );
   }
 
   if (user.role === 'TEACHER') {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="TeacherHome" component={TeacherHomeScreen} />
-        <Stack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
-        <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
-        <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
-        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      </Stack.Navigator>
+      <TeacherStack.Navigator screenOptions={{ headerShown: false }}>
+        <TeacherStack.Screen name="TeacherHome" component={TeacherHomeScreen} />
+        <TeacherStack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
+        <TeacherStack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
+        <TeacherStack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
+        <TeacherStack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+        <TeacherStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      </TeacherStack.Navigator>
     );
   }
 
   if (user.role === 'STUDENT') {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MyLearning" component={MyLearningScreen} />
-        <Stack.Screen name="StudentNewEnrollment" component={StudentNewEnrollmentScreen} />
-        <Stack.Screen name="StudentDashboard" component={StudentHomeScreen} />
-        <Stack.Screen name="StudentSlots" component={StudentSlotsScreen} />
-        <Stack.Screen name="StudentGrades" component={StudentGradesScreen} />
-        <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
-        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      </Stack.Navigator>
+      <StudentStack.Navigator screenOptions={{ headerShown: false }}>
+        <StudentStack.Screen name="MyLearning" component={MyLearningScreen} />
+        <StudentStack.Screen name="StudentNewEnrollment" component={StudentNewEnrollmentScreen} />
+        <StudentStack.Screen name="StudentDashboard" component={StudentHomeScreen} />
+        <StudentStack.Screen name="StudentSlots" component={StudentSlotsScreen} />
+        <StudentStack.Screen name="StudentGrades" component={StudentGradesScreen} />
+        <StudentStack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
+        <StudentStack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+        <StudentStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      </StudentStack.Navigator>
     );
   }
 

@@ -6,13 +6,9 @@ import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
+import type { AdminScreenProps } from '../navigation/types';
 
-type Props = {
-  navigation: NativeStackNavigationProp<any>;
-  route: RouteProp<any>;
-};
+type Props = AdminScreenProps<'AdminVolunteerAnalytics'>;
 
 interface Booking {
   id: number;
@@ -48,7 +44,7 @@ const GRADE_COLORS: Record<string, string> = {
 
 export default function AdminVolunteerAnalyticsScreen({ navigation, route }: Props) {
   const { logout } = useAuth();
-  const vid = route.params?.vid as string;
+  const { vid } = route.params;
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

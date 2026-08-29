@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 import { AlertBox, showConfirmationDialog, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type {
@@ -29,7 +29,7 @@ import {
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminEnrollments'>;
 
 interface ApprovalDraft {
   groupId: string;

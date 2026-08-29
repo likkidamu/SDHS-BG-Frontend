@@ -14,10 +14,10 @@ import {
   saveAdminBulkBookings,
   searchAdminBookingStudents,
 } from '../features/admin/bulkBooking/service';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AdminScreenProps } from '../navigation/types';
 import { getApiErrorMessage } from '../utils/apiError';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = AdminScreenProps<'AdminBulkBooking'>;
 
 interface BookingEditor {
   volunteerId: string;
