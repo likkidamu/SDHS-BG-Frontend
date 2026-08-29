@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
+  TouchableOpacity, ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { TopNavbar } from '../components';
+import { showConfirmationDialog, TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import type { BulkBookingEntry, Chapter, ExistingBooking, Slot, StudentSearchResult, TrackType } from '../features/admin/bulkBooking/models';
@@ -15,6 +15,7 @@ import {
   searchAdminBookingStudents,
 } from '../features/admin/bulkBooking/service';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -61,10 +62,6 @@ function existingChapterLabel(booking: ExistingBooking) {
   if (isSupplementalChapter(booking.chapterName)) return booking.chapterName;
   const label = [booking.chapterNumber, booking.chapterName].filter(value => value !== undefined && value !== null && value !== '').join(' ');
   return label || '-';
-}
-
-function apiErrorMessage(error: any, fallback: string) {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
 function failedStagedEntries(entries: StagedBooking[], messages: string[], failed: number) {
@@ -225,7 +222,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       setChapters(response.chapters);
       setBookings(response.bookings);
     } catch (e: any) {
-      setLoadError(apiErrorMessage(e, 'Failed to load bulk booking.'));
+      setLoadError(getApiErrorMessage(e, 'Failed to load bulk booking.'));
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -371,7 +368,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       }
       await load(false);
     } catch (saveError: any) {
-      setNotice({ type: 'error', summary: apiErrorMessage(saveError, 'Failed to save bookings.') });
+      setNotice({ type: 'error', summary: getApiErrorMessage(saveError, 'Failed to save bookings.') });
     } finally {
       saveInProgress.current = false;
       setSaving(false);
@@ -387,9 +384,12 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
   const deleteBooking = (b: ExistingBooking) => {
     if (deletingBookingId !== null) return;
-    Alert.alert('Delete', `Delete booking for ${b.studentName}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    showConfirmationDialog({
+      title: 'Delete',
+      message: `Delete booking for ${b.studentName}?`,
+      confirmLabel: 'Delete',
+      destructive: true,
+      confirm: async () => {
         if (deleteInProgress.current) return;
         deleteInProgress.current = true;
         setDeletingBookingId(b.id);
@@ -399,13 +399,13 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
           setNotice({ type: 'success', summary: response.message });
           await load(false);
         } catch (deleteError: any) {
-          setNotice({ type: 'error', summary: apiErrorMessage(deleteError, 'Failed to delete booking.') });
+          setNotice({ type: 'error', summary: getApiErrorMessage(deleteError, 'Failed to delete booking.') });
         } finally {
           deleteInProgress.current = false;
           setDeletingBookingId(null);
         }
-      }},
-    ]);
+      },
+    });
   };
 
   return (

@@ -17,13 +17,10 @@ import {
   saveTeacherAvailability,
 } from '../features/teacher/availability/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 type Notice = { type: 'success' | 'error'; message: string };
-
-function apiErrorMessage(error: any, fallback: string): string {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
-}
 
 export default function TeacherAvailabilityScreen({ navigation }: Props) {
   const { logout } = useAuth();
@@ -40,7 +37,7 @@ export default function TeacherAvailabilityScreen({ navigation }: Props) {
     try {
       setData(await getTeacherAvailability());
     } catch (requestError: any) {
-      setError(apiErrorMessage(requestError, 'Failed to load your availability.'));
+      setError(getApiErrorMessage(requestError, 'Failed to load your availability.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,7 +76,7 @@ export default function TeacherAvailabilityScreen({ navigation }: Props) {
     } catch (saveError: any) {
       setNotice({
         type: 'error',
-        message: apiErrorMessage(saveError, 'Failed to save your availability.'),
+        message: getApiErrorMessage(saveError, 'Failed to save your availability.'),
       });
     } finally {
       setSaving(false);

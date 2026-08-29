@@ -13,6 +13,7 @@ import {
   dropAdminVolunteer, editAdminVolunteer, getAdminVolunteers, reactivateAdminVolunteer,
 } from '../features/admin/volunteers/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 type VolunteerAction = 'edit' | 'drop' | 'reactivate';
@@ -21,10 +22,6 @@ type Notice = { type: 'success' | 'error'; message: string };
 const TYPE_OPTIONS = [{ key: 'S', label: 'Student' }, { key: 'T', label: 'Teacher' }, { key: 'A', label: 'Admin' }];
 const STATUS_OPTIONS = [{ key: 'ACTIVE', label: 'Active' }, { key: 'INACTIVE', label: 'Inactive' }, { key: 'DROPPED', label: 'Dropped' }];
 const TRACK_OPTIONS = [{ key: 'MEM', label: 'MEM' }, { key: 'FLUENT', label: 'FLUENT' }];
-
-function apiError(error: any, fallback: string): string {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
-}
 
 function validationErrors(edit: EditAdminVolunteerRequest) {
   const errors: { name?: string; email?: string; phoneNumber?: string } = {};
@@ -98,7 +95,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
     try {
       setData(await getAdminVolunteers(applied));
     } catch (requestError: any) {
-      setError(apiError(requestError, 'Failed to load volunteers.'));
+      setError(getApiErrorMessage(requestError, 'Failed to load volunteers.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -160,7 +157,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
       setSelected(null);
       await load();
     } catch (requestError: any) {
-      setModalError(apiError(requestError, action === 'edit' ? 'Unable to update volunteer.' : action === 'drop' ? 'Unable to drop volunteer.' : 'Unable to reactivate volunteer.'));
+      setModalError(getApiErrorMessage(requestError, action === 'edit' ? 'Unable to update volunteer.' : action === 'drop' ? 'Unable to drop volunteer.' : 'Unable to reactivate volunteer.'));
     } finally {
       setProcessingAction(null);
     }

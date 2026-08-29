@@ -12,13 +12,10 @@ import {
 import { AlertBox } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import type { AccountProfile } from './models';
-import {
-  getAccountError,
-  getAccountProfile,
-  updateAccountContact,
-} from './service';
+import { getAccountProfile, updateAccountContact } from './service';
 import { validateAccountContact } from './validation';
 import { borderRadius, colors, fonts, shadows, spacing } from '../../theme';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export default function ProfileCompletionGate({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -42,9 +39,9 @@ export default function ProfileCompletionGate({ children }: { children: React.Re
     setError('');
     try {
       applyProfile(await getAccountProfile());
-    } catch (requestError: any) {
+    } catch (requestError: unknown) {
       setProfile(null);
-      setError(getAccountError(requestError, 'Unable to load your profile.'));
+      setError(getApiErrorMessage(requestError, 'Unable to load your profile.'));
     } finally {
       setLoadedIdentity(user.volunteerId);
       setLoading(false);
@@ -77,8 +74,8 @@ export default function ProfileCompletionGate({ children }: { children: React.Re
         phoneNumber: phoneNumber.trim(),
       });
       applyProfile(await getAccountProfile());
-    } catch (requestError: any) {
-      setError(getAccountError(requestError, 'Unable to update contact information.'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Unable to update contact information.'));
     } finally {
       setSaving(false);
     }

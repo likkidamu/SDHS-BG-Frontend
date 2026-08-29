@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -12,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AlertBox, TopNavbar } from '../components';
+import { AlertBox, showConfirmationDialog, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type {
   AdminEnrollmentManagementData,
@@ -28,6 +27,7 @@ import {
   rejectAdminEnrollment,
 } from '../features/admin/enrollments/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -40,12 +40,6 @@ interface ApprovalDraft {
 type EnrollmentAction = 'approve' | 'reject' | 'default' | 'complete' | 'drop';
 
 const emptyDraft: ApprovalDraft = { groupId: '', slotEligible: false, rejectionReason: '' };
-
-function errorMessage(error: any, fallback = 'Failed to load enrollments.'): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? fallback;
-}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -105,7 +99,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
     try {
       setData(await getAdminEnrollmentManagement());
     } catch (requestError: any) {
-      setError(errorMessage(requestError));
+      setError(getApiErrorMessage(requestError, 'Failed to load enrollments.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -143,7 +137,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
       setNotice({ type: 'success', message: 'Enrollment approved.' });
       await load(true);
     } catch (requestError: any) {
-      setNotice({ type: 'error', message: errorMessage(requestError, 'Failed to approve enrollment.') });
+      setNotice({ type: 'error', message: getApiErrorMessage(requestError, 'Failed to approve enrollment.') });
     } finally {
       actionInFlight.current = false;
       setWorking(null);
@@ -153,9 +147,12 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
 
   const reject = (enrollmentId: number) => {
     if (actionInFlight.current) return;
-    Alert.alert('Reject Enrollment', 'Reject this enrollment?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reject', style: 'destructive', onPress: async () => {
+    showConfirmationDialog({
+      title: 'Reject Enrollment',
+      message: 'Reject this enrollment?',
+      confirmLabel: 'Reject',
+      destructive: true,
+      confirm: async () => {
         if (actionInFlight.current) return;
         actionInFlight.current = true;
         setWorking(enrollmentId);
@@ -167,25 +164,25 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
           setNotice({ type: 'success', message: 'Enrollment rejected.' });
           await load(true);
         } catch (requestError: any) {
-          setNotice({ type: 'error', message: errorMessage(requestError, 'Failed to reject enrollment.') });
+          setNotice({ type: 'error', message: getApiErrorMessage(requestError, 'Failed to reject enrollment.') });
         } finally {
           actionInFlight.current = false;
           setWorking(null);
           setWorkingAction(null);
         }
-      } },
-    ]);
+      },
+    });
   };
 
   const lifecycleAction = (enrollmentId: number, action: 'default' | 'complete' | 'drop') => {
     if (actionInFlight.current) return;
     const labels = { default: 'make this the default', complete: 'complete', drop: 'drop' };
-    Alert.alert(
-      action === 'default' ? 'Make Default Enrollment' : action === 'complete' ? 'Complete Enrollment' : 'Drop Enrollment',
-      `Are you sure you want to ${labels[action]} enrollment?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: action === 'default' ? 'Make Default' : action === 'complete' ? 'Complete' : 'Drop', style: action === 'drop' ? 'destructive' : 'default', onPress: async () => {
+    showConfirmationDialog({
+      title: action === 'default' ? 'Make Default Enrollment' : action === 'complete' ? 'Complete Enrollment' : 'Drop Enrollment',
+      message: `Are you sure you want to ${labels[action]} enrollment?`,
+      confirmLabel: action === 'default' ? 'Make Default' : action === 'complete' ? 'Complete' : 'Drop',
+      destructive: action === 'drop',
+      confirm: async () => {
           if (actionInFlight.current) return;
           actionInFlight.current = true;
           setWorking(enrollmentId);
@@ -199,15 +196,14 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
             setNotice({ type: 'success', message: `Enrollment ${success} successfully.` });
             await load(true);
           } catch (requestError: any) {
-            setNotice({ type: 'error', message: errorMessage(requestError, `Unable to ${action} enrollment.`) });
+            setNotice({ type: 'error', message: getApiErrorMessage(requestError, `Unable to ${action} enrollment.`) });
           } finally {
             actionInFlight.current = false;
             setWorking(null);
             setWorkingAction(null);
           }
-        } },
-      ],
-    );
+      },
+    });
   };
 
   return (

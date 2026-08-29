@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,12 +8,13 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AlertBox, ContentCard, Footer, StatCard, TopNavbar } from '../components';
+import { AsyncState, ContentCard, Footer, StatCard, TopNavbar } from '../components';
 import type { AttendanceConfigurationGroup } from '../features/admin/enrollments/models';
 import type { AdminReportsData } from '../features/admin/reports/models';
-import { getAdminReports, getAdminReportsError } from '../features/admin/reports/service';
+import { getAdminReports } from '../features/admin/reports/service';
 import type { AdminVolunteer } from '../features/admin/volunteers/models';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -72,8 +72,8 @@ export default function AdminReportsScreen({ navigation }: Props) {
     setError('');
     try {
       setData(await getAdminReports());
-    } catch (requestError: any) {
-      setError(getAdminReportsError(requestError, 'Failed to load reports.'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Failed to load reports.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -109,21 +109,7 @@ export default function AdminReportsScreen({ navigation }: Props) {
           />
         }
       >
-        {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading reports...</Text>
-          </View>
-        ) : null}
-
-        {!loading && error ? (
-          <View style={styles.errorState}>
-            <AlertBox type="error" message={error} />
-            <TouchableOpacity style={styles.retryButton} onPress={() => void load()}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <AsyncState loading={loading} error={!loading ? error : false} onRetry={() => void load()} loadingMessage="Loading reports..." />
 
         {!loading && data ? (
           <>
@@ -153,7 +139,7 @@ export default function AdminReportsScreen({ navigation }: Props) {
             </View>
             <ContentCard title="Group Reports" rightLabel={`${data.config.groups.length} Groups`}>
               {data.config.groups.length === 0 ? (
-                <Text style={styles.emptyText}>No configured groups are available for reporting.</Text>
+                <AsyncState empty emptyMessage="No configured groups are available for reporting." />
               ) : (
                 <View style={styles.groupList}>
                   {data.config.groups.map((group) => (
@@ -194,16 +180,6 @@ export default function AdminReportsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, gap: spacing.md },
-  loadingState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
-  loadingText: { color: colors.textMuted, fontSize: 14, ...fonts.medium },
-  errorState: { alignItems: 'center', gap: spacing.sm },
-  retryButton: {
-    backgroundColor: colors.navy,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  retryText: { color: colors.white, fontSize: 13, ...fonts.bold },
   sectionHeading: { gap: spacing.xs, marginTop: spacing.xs },
   sectionTitle: { color: colors.navy, fontSize: 18, ...fonts.bold },
   sectionDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
@@ -225,7 +201,6 @@ const styles = StyleSheet.create({
   groupMetric: { flex: 1, alignItems: 'center' },
   groupMetricValue: { color: colors.textDark, fontSize: 18, ...fonts.extraBold },
   groupMetricLabel: { color: colors.textMuted, fontSize: 10, marginTop: 2, ...fonts.semiBold },
-  emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: spacing.md },
   analyticsTitle: { color: colors.textDark, fontSize: 14, ...fonts.bold },
   analyticsDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
   analyticsButton: {

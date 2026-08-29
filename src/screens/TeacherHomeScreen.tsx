@@ -16,6 +16,7 @@ import type { TeacherGradingBooking } from '../features/teacher/grading/models';
 import type { TeacherHomeData } from '../features/teacher/home/models';
 import { getTeacherHome } from '../features/teacher/home/service';
 import { colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -24,12 +25,6 @@ function todayIsoDate(): string {
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
   return `${today.getFullYear()}-${month}-${day}`;
-}
-
-function errorMessage(error: any): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? 'Failed to load teacher dashboard.';
 }
 
 function BookingRow({ booking, recent = false }: { booking: TeacherGradingBooking; recent?: boolean }) {
@@ -72,7 +67,7 @@ export default function TeacherHomeScreen({ navigation }: Props) {
     try {
       setData(await getTeacherHome());
     } catch (requestError: any) {
-      setError(errorMessage(requestError));
+      setError(getApiErrorMessage(requestError, 'Failed to load teacher dashboard.'));
     } finally {
       setLoading(false);
       setRefreshing(false);

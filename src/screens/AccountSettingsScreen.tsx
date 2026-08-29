@@ -10,16 +10,13 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AlertBox, ContentCard, Footer, TopNavbar } from '../components';
+import { AlertBox, AsyncState, ContentCard, Footer, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { AccountProfile } from '../features/account/models';
-import {
-  getAccountError,
-  getAccountProfile,
-  updateAccountContact,
-} from '../features/account/service';
+import { getAccountProfile, updateAccountContact } from '../features/account/service';
 import { validateAccountContact } from '../features/account/validation';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -55,8 +52,8 @@ export default function AccountSettingsScreen({ navigation }: Props) {
     setError('');
     try {
       applyProfile(await getAccountProfile());
-    } catch (requestError: any) {
-      setError(getAccountError(requestError, 'Unable to load account settings.'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Unable to load account settings.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -98,8 +95,8 @@ export default function AccountSettingsScreen({ navigation }: Props) {
       }));
       setEditing(false);
       setNotice('Contact information updated successfully.');
-    } catch (requestError: any) {
-      setError(getAccountError(requestError, 'Unable to update contact information.'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Unable to update contact information.'));
     } finally {
       setSaving(false);
     }
@@ -125,21 +122,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
           />
         }
       >
-        {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading account settings...</Text>
-          </View>
-        ) : null}
-
-        {!loading && error && !profile ? (
-          <View style={styles.errorState}>
-            <AlertBox type="error" message={error} />
-            <TouchableOpacity style={styles.primaryButton} onPress={() => void load()}>
-              <Text style={styles.primaryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <AsyncState loading={loading} error={!loading && !profile ? error : false} onRetry={() => void load()} loadingMessage="Loading account settings..." />
 
         {!loading && profile ? (
           <>
@@ -219,9 +202,6 @@ export default function AccountSettingsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, gap: spacing.md },
-  loadingState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
-  loadingText: { color: colors.textMuted, fontSize: 14, ...fonts.medium },
-  errorState: { alignItems: 'center', gap: spacing.sm },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

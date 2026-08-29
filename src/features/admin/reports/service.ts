@@ -14,9 +14,3 @@ export async function getAdminReports(): Promise<AdminReportsData> {
     volunteers,
   };
 }
-
-export function getAdminReportsError(error: any, fallback: string): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? fallback;
-}

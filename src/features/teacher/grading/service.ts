@@ -16,9 +16,3 @@ export async function updateTeacherGrade(
   const response = await api.post<UpdateTeacherGradeResponse>('/teacher/grade', request);
   return response.data;
 }
-
-export function getTeacherGradingError(error: any, fallback: string): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? fallback;
-}

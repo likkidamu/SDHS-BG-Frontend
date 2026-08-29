@@ -16,6 +16,7 @@ import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollment
 import { getLearningEnrollments } from '../features/enrollment/service';
 import type { StudentAttendanceRecord, StudentAttendanceResponse } from '../features/student/attendance/models';
 import { getStudentAttendance } from '../features/student/attendance/service';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -27,10 +28,6 @@ const PROGRAM_LABELS: Record<ProgramType, string> = {
 
 function getEnrollmentId(enrollment: LearningEnrollment) {
   return enrollment.enrollmentId ?? enrollment.id;
-}
-
-function apiErrorMessage(error: any, fallback: string) {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
 function isUnavailableEnrollmentError(error: any) {
@@ -73,7 +70,7 @@ export default function StudentAttendanceScreen({ navigation }: Props) {
         returnToMyLearning();
         return;
       }
-      setError(apiErrorMessage(e, 'Failed to load attendance data.'));
+      setError(getApiErrorMessage(e, 'Failed to load attendance data.'));
     } finally {
       setLoading(false);
     }

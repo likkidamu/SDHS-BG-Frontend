@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Linking, Modal, RefreshControl, ScrollView,
+  ActivityIndicator, Linking, Modal, RefreshControl, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AlertBox, StatCard, TopNavbar } from '../components';
+import { AlertBox, showConfirmationDialog, StatCard, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import type { AdminTeacherDashboardBooking, AdminTeacherDashboardResponse } from '../features/admin/teacherDashboard/models';
 import {
   deleteAdminTeacherDashboardRow, getAdminTeacherDashboard, saveAdminTeacherDashboardRow,
 } from '../features/admin/teacherDashboard/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 type Notice = { type: 'success' | 'error'; message: string };
@@ -19,10 +20,6 @@ function currentOrNextSunday(): string {
   const date = new Date();
   date.setDate(date.getDate() + ((7 - date.getDay()) % 7));
   return date.toISOString().slice(0, 10);
-}
-
-function apiError(error: any, fallback: string): string {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
 function chapterLabel(booking: AdminTeacherDashboardBooking): string {
@@ -61,7 +58,7 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
     try {
       setData(await getAdminTeacherDashboard({ date, ...(selectedTeacherId ? { teacherId: selectedTeacherId } : {}) }));
     } catch (requestError: any) {
-      setError(apiError(requestError, 'Failed to load teachers dashboard.'));
+      setError(getApiErrorMessage(requestError, 'Failed to load teachers dashboard.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,7 +96,7 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
       setEditModal(false);
       await load();
     } catch (requestError: any) {
-      setNotice({ type: 'error', message: apiError(requestError, 'Failed to save booking.') });
+      setNotice({ type: 'error', message: getApiErrorMessage(requestError, 'Failed to save booking.') });
     } finally {
       setWorking(null);
     }
@@ -107,9 +104,12 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
 
   const deleteRow = (booking: AdminTeacherDashboardBooking) => {
     if (working !== null) return;
-    Alert.alert('Delete Booking', `Delete booking for ${booking.studentName}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    showConfirmationDialog({
+      title: 'Delete Booking',
+      message: `Delete booking for ${booking.studentName}?`,
+      confirmLabel: 'Delete',
+      destructive: true,
+      confirm: async () => {
         setWorking(booking.id);
         setNotice(null);
         try {
@@ -117,12 +117,12 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
           setNotice({ type: 'success', message: response.message });
           await load();
         } catch (requestError: any) {
-          setNotice({ type: 'error', message: apiError(requestError, 'Failed to delete booking.') });
+          setNotice({ type: 'error', message: getApiErrorMessage(requestError, 'Failed to delete booking.') });
         } finally {
           setWorking(null);
         }
-      } },
-    ]);
+      },
+    });
   };
 
   return (

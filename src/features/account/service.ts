@@ -12,9 +12,3 @@ export async function updateAccountContact(
   const response = await api.put<AccountProfile>('/profile/contact', request);
   return response.data;
 }
-
-export function getAccountError(error: any, fallback: string): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? fallback;
-}

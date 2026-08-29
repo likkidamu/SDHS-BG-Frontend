@@ -13,6 +13,7 @@ import { getLearningEnrollments } from '../features/enrollment/service';
 import type { StudentGrade, StudentGradesResponse } from '../features/student/examHistory/models';
 import { getStudentExamHistory } from '../features/student/examHistory/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -22,10 +23,6 @@ const PROGRAM_LABELS: Record<ProgramType, string> = {
 
 function getEnrollmentId(enrollment: LearningEnrollment) {
   return enrollment.enrollmentId ?? enrollment.id;
-}
-
-function apiErrorMessage(error: any, fallback: string) {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
 function isUnavailableEnrollmentError(error: any) {
@@ -80,7 +77,7 @@ export default function StudentGradesScreen({ navigation }: Props) {
         returnToMyLearning();
         return;
       }
-      setError(apiErrorMessage(e, 'Failed to load grade history.'));
+      setError(getApiErrorMessage(e, 'Failed to load grade history.'));
     }
   }, [navigation, returnToMyLearning, selectedEnrollment]);
 

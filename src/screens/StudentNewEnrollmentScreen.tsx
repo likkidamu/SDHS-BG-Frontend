@@ -10,11 +10,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AlertBox, ContentCard, TopNavbar } from '../components';
 import type { ProgramType } from '../features/enrollment/models';
 import type { EnrollmentProgramOption } from '../features/student/enrollmentRequest/models';
-import {
-  createStudentEnrollment,
-  getEnrollmentRequestError,
-} from '../features/student/enrollmentRequest/service';
+import { createStudentEnrollment } from '../features/student/enrollmentRequest/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -36,8 +34,8 @@ export default function StudentNewEnrollmentScreen({ navigation }: Props) {
     try {
       await createStudentEnrollment({ programType });
       navigation.replace('MyLearning', { enrollmentRequestSuccess: true });
-    } catch (requestError: any) {
-      setError(getEnrollmentRequestError(requestError, 'Unable to submit enrollment request.'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Unable to submit enrollment request.'));
     } finally {
       setSubmitting(false);
     }

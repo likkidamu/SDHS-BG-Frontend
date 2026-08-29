@@ -26,15 +26,12 @@ import {
   cancelStudentBooking,
   getStudentSlots,
 } from '../features/student/booking/service';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
 function getEnrollmentId(enrollment: LearningEnrollment) {
   return enrollment.enrollmentId ?? enrollment.id;
-}
-
-function apiErrorMessage(error: any, fallback: string) {
-  return error.response?.data?.error ?? error.response?.data?.message ?? fallback;
 }
 
 function isUnavailableEnrollmentError(error: any) {
@@ -120,7 +117,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
         returnToMyLearning();
         return;
       }
-      setError(apiErrorMessage(e, 'Failed to load slot data.'));
+      setError(getApiErrorMessage(e, 'Failed to load slot data.'));
     } finally {
       setLoading(false);
     }
@@ -154,7 +151,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
         returnToMyLearning();
         return;
       }
-      setError(apiErrorMessage(e, 'Failed to book slot.'));
+      setError(getApiErrorMessage(e, 'Failed to book slot.'));
     } finally {
       bookingInFlight.current = false;
       setBooking(false);
@@ -229,7 +226,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
         returnToMyLearning();
         return;
       }
-      setError(apiErrorMessage(e, 'Failed to cancel booking.'));
+      setError(getApiErrorMessage(e, 'Failed to cancel booking.'));
     } finally {
       cancellationInFlight.current = false;
       setCancelling(null);

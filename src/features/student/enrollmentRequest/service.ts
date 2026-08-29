@@ -7,9 +7,3 @@ export async function createStudentEnrollment(
   const response = await api.post<CreateEnrollmentResponse>('/student/enrollments', request);
   return response.data;
 }
-
-export function getEnrollmentRequestError(error: any, fallback: string): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? fallback;
-}

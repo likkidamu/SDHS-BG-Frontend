@@ -15,16 +15,11 @@ import { useAuth } from '../context/AuthContext';
 import type { AdminDashboardData, AdminDashboardVolunteer } from '../features/admin/dashboard/models';
 import { getAdminDashboard } from '../features/admin/dashboard/service';
 import { borderRadius, colors, fonts, spacing } from '../theme';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const bgAdmin = require('../../assets/bg_admin.png');
 
 type Props = { navigation: NativeStackNavigationProp<any> };
-
-function errorMessage(error: any): string {
-  return error.response?.data?.error
-    ?? error.response?.data?.message
-    ?? 'Failed to load the admin dashboard.';
-}
 
 function formatDate(value: string | null): string {
   if (!value) return 'Date unavailable';
@@ -59,7 +54,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
     try {
       setData(await getAdminDashboard());
     } catch (requestError: any) {
-      setError(errorMessage(requestError));
+      setError(getApiErrorMessage(requestError, 'Failed to load the admin dashboard.'));
     } finally {
       setLoading(false);
       setRefreshing(false);

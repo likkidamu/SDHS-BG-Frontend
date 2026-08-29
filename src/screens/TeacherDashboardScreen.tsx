@@ -11,15 +11,15 @@ import {
   RefreshControl,
   Linking,
 } from 'react-native';
-import { TopNavbar, StatCard, ContentCard, AlertBox, Footer } from '../components';
+import { TopNavbar, StatCard, ContentCard, AlertBox, AsyncState, Footer } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import type { TeacherGradingBooking } from '../features/teacher/grading/models';
 import {
   getTeacherGradingDashboard,
-  getTeacherGradingError,
   updateTeacherGrade,
 } from '../features/teacher/grading/service';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type BookingEdits = {
@@ -117,8 +117,8 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
       });
       setEdits(initialEdits);
       setFeedback({});
-    } catch (e: any) {
-      setError(getTeacherGradingError(e, 'Failed to load dashboard'));
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, 'Failed to load dashboard'));
     }
   }, []);
 
@@ -277,12 +277,12 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           [booking.id]: { type: 'error', message: response.message || 'Failed to save' },
         }));
       }
-    } catch (e: any) {
+    } catch (requestError: unknown) {
       setFeedback((prev) => ({
         ...prev,
         [booking.id]: {
           type: 'error',
-          message: getTeacherGradingError(e, 'Failed to save grade'),
+          message: getApiErrorMessage(requestError, 'Failed to save grade'),
         },
       }));
     } finally {
@@ -446,10 +446,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             { label: 'Logout', onPress: logout, variant: 'logout' },
           ]}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading bookings...</Text>
-        </View>
+        <AsyncState loading fill loadingMessage="Loading bookings..." />
       </View>
     );
   }
@@ -470,14 +467,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {error ? (
-          <View style={styles.errorState}>
-            <AlertBox type="error" message={error} />
-            <TouchableOpacity style={styles.retryButton} onPress={() => void loadDashboard()}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <AsyncState error={error} onRetry={() => void loadDashboard()} />
 
         {!error ? <>
         {/* Stat cards */}
@@ -681,18 +671,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.textMuted,
-    ...fonts.medium,
-  },
-
   // Stats row
   statsRow: {
     flexDirection: 'row',
@@ -958,22 +936,6 @@ const styles = StyleSheet.create({
     ...fonts.regular,
     textAlign: 'center',
   },
-  errorState: {
-    gap: spacing.sm,
-  },
-  retryButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.navy,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  retryButtonText: {
-    color: colors.white,
-    fontSize: 14,
-    ...fonts.bold,
-  },
-
   // Modal
   modalOverlay: {
     flex: 1,
