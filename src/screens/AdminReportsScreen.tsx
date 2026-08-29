@@ -12,30 +12,32 @@ import { AsyncState, ContentCard, Footer, StatCard, TopNavbar } from '../compone
 import type { AttendanceConfigurationGroup } from '../features/admin/enrollments/models';
 import type { AdminReportsData } from '../features/admin/reports/models';
 import { getAdminReports } from '../features/admin/reports/service';
-import type { AdminVolunteer } from '../features/admin/volunteers/models';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = AdminScreenProps<'AdminReports'>;
 
-function countStudents(students: AdminVolunteer[], groupId: string, trackType?: string): number {
-  return students.filter(
-    (student) => student.groupId === groupId
-      && (!trackType || student.trackType === trackType),
-  ).length;
-}
+type GroupMetrics = { students: number; memorization: number; fluent: number };
+const EMPTY_GROUP_METRICS: GroupMetrics = { students: 0, memorization: 0, fluent: 0 };
 
-function GroupReportCard({
+const GroupReportCard = React.memo(function GroupReportCard({
   group,
-  students,
-  onPress,
+  metrics,
+  navigation,
 }: {
   group: AttendanceConfigurationGroup;
-  students: AdminVolunteer[];
-  onPress: () => void;
+  metrics: GroupMetrics;
+  navigation: Props['navigation'];
 }) {
   return (
-    <TouchableOpacity style={styles.groupCard} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity
+      style={styles.groupCard}
+      onPress={() => navigation.navigate('AdminGroupDetail', {
+        groupId: group.groupId,
+        groupName: group.groupName,
+      })}
+      activeOpacity={0.75}
+    >
       <View style={styles.groupHeader}>
         <View style={styles.groupIdentity}>
           <Text style={styles.groupName}>{group.groupName ?? `Group ${group.groupId}`}</Text>
@@ -45,21 +47,21 @@ function GroupReportCard({
       </View>
       <View style={styles.groupMetrics}>
         <View style={styles.groupMetric}>
-          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId)}</Text>
+          <Text style={styles.groupMetricValue}>{metrics.students}</Text>
           <Text style={styles.groupMetricLabel}>Students</Text>
         </View>
         <View style={styles.groupMetric}>
-          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId, 'MEM')}</Text>
+          <Text style={styles.groupMetricValue}>{metrics.memorization}</Text>
           <Text style={styles.groupMetricLabel}>MEM</Text>
         </View>
         <View style={styles.groupMetric}>
-          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId, 'FLUENT')}</Text>
+          <Text style={styles.groupMetricValue}>{metrics.fluent}</Text>
           <Text style={styles.groupMetricLabel}>FLUENT</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export default function AdminReportsScreen({ navigation }: Props) {
   const [data, setData] = useState<AdminReportsData | null>(null);
@@ -91,6 +93,19 @@ export default function AdminReportsScreen({ navigation }: Props) {
       activeGroups: data?.config.groups.filter((group) => group.status === 'ACTIVE').length ?? 0,
     };
   }, [data]);
+
+  const groupMetrics = useMemo(() => {
+    const counts = new Map<string, GroupMetrics>();
+    (data?.volunteers.volunteers ?? []).forEach((student) => {
+      if (!student.groupId) return;
+      const current = counts.get(student.groupId) ?? { students: 0, memorization: 0, fluent: 0 };
+      current.students += 1;
+      if (student.trackType === 'MEM') current.memorization += 1;
+      if (student.trackType === 'FLUENT') current.fluent += 1;
+      counts.set(student.groupId, current);
+    });
+    return counts;
+  }, [data?.volunteers.volunteers]);
 
   return (
     <View style={styles.page}>
@@ -146,11 +161,8 @@ export default function AdminReportsScreen({ navigation }: Props) {
                     <GroupReportCard
                       key={group.groupId}
                       group={group}
-                      students={data.volunteers.volunteers}
-                      onPress={() => navigation.navigate('AdminGroupDetail', {
-                        groupId: group.groupId,
-                        groupName: group.groupName,
-                      })}
+                      metrics={groupMetrics.get(group.groupId) ?? EMPTY_GROUP_METRICS}
+                      navigation={navigation}
                     />
                   ))}
                 </View>

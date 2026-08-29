@@ -12,7 +12,7 @@ type Props = {
   badges?: Badge[];
 };
 
-export default function WelcomeCard({ greeting = 'Welcome back', name, badges = [] }: Props) {
+function WelcomeCard({ greeting = 'Welcome back', name, badges = [] }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.topBar} />
@@ -31,6 +31,8 @@ export default function WelcomeCard({ greeting = 'Welcome back', name, badges = 
     </View>
   );
 }
+
+export default React.memo(WelcomeCard);
 
 const styles = StyleSheet.create({
   container: {

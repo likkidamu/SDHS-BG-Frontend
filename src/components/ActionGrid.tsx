@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import ActionCard from './ActionCard';
 
 type ActionItem = {
@@ -17,20 +18,22 @@ type Props = {
   columns?: number;
 };
 
-export default function ActionGrid({ actions, columns = 2 }: Props) {
+function ActionGrid({ actions, columns = 2 }: Props) {
   const { width } = useWindowDimensions();
   const cols = width > 768 ? Math.min(columns, 4) : 2;
 
   return (
     <View style={styles.grid}>
-      {actions.map((action, i) => (
-        <View key={i} style={[styles.cell, { width: `${(100 / cols) - 2}%` as any }]}>
+      {actions.map((action) => (
+        <View key={action.title} style={[styles.cell, { width: `${(100 / cols) - 2}%` as DimensionValue }]}>
           <ActionCard {...action} />
         </View>
       ))}
     </View>
   );
 }
+
+export default React.memo(ActionGrid);
 
 const styles = StyleSheet.create({
   grid: {

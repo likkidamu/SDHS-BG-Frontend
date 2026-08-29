@@ -12,7 +12,7 @@ type Props = {
   disabled?: boolean;
 };
 
-export default function ActionCard({
+function ActionCard({
   title,
   description,
   iconLabel,
@@ -36,6 +36,8 @@ export default function ActionCard({
     </TouchableOpacity>
   );
 }
+
+export default React.memo(ActionCard);
 
 const styles = StyleSheet.create({
   container: {

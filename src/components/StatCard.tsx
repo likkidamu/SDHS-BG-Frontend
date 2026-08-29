@@ -11,7 +11,7 @@ type Props = {
   valueColor?: string;
 };
 
-export default function StatCard({
+function StatCard({
   value,
   label,
   iconLabel,
@@ -29,6 +29,8 @@ export default function StatCard({
     </View>
   );
 }
+
+export default React.memo(StatCard);
 
 const styles = StyleSheet.create({
   container: {

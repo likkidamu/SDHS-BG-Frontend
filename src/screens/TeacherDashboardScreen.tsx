@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   ScrollView,
   TextInput,
   TouchableOpacity,
@@ -34,6 +35,8 @@ type RowFeedback = {
 };
 
 type Props = TeacherScreenProps<'TeacherDashboard'>;
+
+const bookingKeyExtractor = (booking: TeacherGradingBooking) => String(booking.id);
 
 function chapterLabel(booking: TeacherGradingBooking): string {
   if (booking.chapterName === 'Dhyana Slokas' || booking.chapterName === 'Gita Mahatyam') {
@@ -179,12 +182,12 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     );
   }, [chapterBookings, searchText]);
 
-  // Stats
-  const totalBookings = chapterBookings.length;
-  const gradedCount = chapterBookings.filter(
-    (b) => b.memorizationGrade && b.memorizationGrade.trim() !== ''
-  ).length;
-  const pendingCount = totalBookings - gradedCount;
+  const statistics = useMemo(() => chapterBookings.reduce((counts, booking) => {
+    counts.total += 1;
+    if (booking.memorizationGrade?.trim()) counts.graded += 1;
+    else counts.pending += 1;
+    return counts;
+  }, { total: 0, graded: 0, pending: 0 }), [chapterBookings]);
 
   // Check if a booking row has changes compared to server data
   const hasChanges = useCallback(
@@ -461,12 +464,15 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         ]}
       />
 
-      <ScrollView
+      <FlatList
+        data={!error ? filteredBookings : []}
+        keyExtractor={bookingKeyExtractor}
+        renderItem={({ item }) => renderBookingCard(item)}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
-      >
+        ListHeaderComponent={<View style={styles.listHeader}>
         <AsyncState error={error} onRetry={() => void loadDashboard()} />
 
         {!error ? <>
@@ -474,7 +480,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <StatCard
-              value={totalBookings}
+              value={statistics.total}
               label="Total Bookings"
               iconLabel="📚"
               iconBg={colors.blueBg}
@@ -483,7 +489,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           </View>
           <View style={styles.statItem}>
             <StatCard
-              value={gradedCount}
+              value={statistics.graded}
               label="Graded"
               iconLabel="✅"
               iconBg={colors.greenBg}
@@ -493,7 +499,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           </View>
           <View style={styles.statItem}>
             <StatCard
-              value={pendingCount}
+              value={statistics.pending}
               label="Pending"
               iconLabel="⏳"
               iconBg={colors.orangeBg}
@@ -589,8 +595,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           )}
         </View>
 
-        {/* Bookings list */}
-        {filteredBookings.length === 0 ? (
+        </> : null}
+        </View>}
+        ListEmptyComponent={!error ? (
           <ContentCard title="No Bookings Found">
             <Text style={styles.emptyText}>
               {searchText.trim()
@@ -602,13 +609,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
                   : 'No bookings assigned to you yet.'}
             </Text>
           </ContentCard>
-        ) : (
-          filteredBookings.map(renderBookingCard)
-        )}
-        </> : null}
-
-        <Footer />
-      </ScrollView>
+        ) : null}
+        ListFooterComponent={<Footer />}
+      />
 
       {/* Grade Picker Modal */}
       <Modal
@@ -671,6 +674,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
+  listHeader: { gap: spacing.md },
   // Stats row
   statsRow: {
     flexDirection: 'row',

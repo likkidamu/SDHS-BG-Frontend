@@ -22,6 +22,9 @@ import type { TeacherScreenProps } from '../navigation/types';
 
 type Props = TeacherScreenProps<'TeacherAttendance'>;
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function getSunday(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay(); // 0=Sun
@@ -39,14 +42,12 @@ function formatDateISO(date: Date): string {
 
 function formatDateDisplay(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 function getDayAbbr(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return days[d.getDay()];
+  return DAY_NAMES[d.getDay()];
 }
 
 export default function TeacherAttendanceScreen({ navigation }: Props) {

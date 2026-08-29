@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Modal, RefreshControl, ScrollView, StyleSheet, Text,
+  ActivityIndicator, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
 import type { AdminScreenProps } from '../navigation/types';
@@ -22,6 +22,7 @@ type Notice = { type: 'success' | 'error'; message: string };
 const TYPE_OPTIONS = [{ key: 'S', label: 'Student' }, { key: 'T', label: 'Teacher' }, { key: 'A', label: 'Admin' }];
 const STATUS_OPTIONS = [{ key: 'ACTIVE', label: 'Active' }, { key: 'INACTIVE', label: 'Inactive' }, { key: 'DROPPED', label: 'Dropped' }];
 const TRACK_OPTIONS = [{ key: 'MEM', label: 'MEM' }, { key: 'FLUENT', label: 'FLUENT' }];
+const volunteerKeyExtractor = (volunteer: AdminVolunteer) => volunteer.volunteerId;
 
 function validationErrors(edit: EditAdminVolunteerRequest) {
   const errors: { name?: string; email?: string; phoneNumber?: string } = {};
@@ -72,6 +73,34 @@ function FormField({ label, value, error, onChangeText, keyboardType }: {
   </View>;
 }
 
+const VolunteerCard = React.memo(function VolunteerCard({ volunteer, onManage, onAnalytics }: {
+  volunteer: AdminVolunteer;
+  onManage: (volunteer: AdminVolunteer) => void;
+  onAnalytics: (volunteerId: string) => void;
+}) {
+  return (
+    <View style={styles.volunteerCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.identity}>
+          <Text style={styles.name}>{volunteer.name}</Text>
+          <Text style={styles.vid}>{volunteer.volunteerId}</Text>
+          <Text style={styles.meta}>{volunteer.enrollmentType ?? '-'} • {volunteer.trackType ?? '-'}</Text>
+          {volunteer.groupId ? <Text style={styles.meta}>Group: {volunteer.groupName ?? volunteer.groupId}</Text> : null}
+        </View>
+        <View style={[styles.badge, volunteer.status === 'ACTIVE' ? styles.activeBadge : volunteer.status === 'INACTIVE' ? styles.inactiveBadge : styles.droppedBadge]}>
+          <Text style={[styles.badgeText, volunteer.status === 'ACTIVE' ? styles.activeText : volunteer.status === 'INACTIVE' ? styles.inactiveText : styles.droppedText]}>{volunteer.status}</Text>
+        </View>
+      </View>
+      {volunteer.phoneNumber || volunteer.email ? <View style={styles.contact}>{volunteer.phoneNumber ? <Text style={styles.contactText}>📞 {volunteer.phoneNumber}</Text> : null}{volunteer.email ? <Text style={styles.contactText}>✉ {volunteer.email}</Text> : null}</View> : null}
+      {volunteer.statusReason ? <Text style={styles.reason}>Reason: {volunteer.statusReason}</Text> : null}
+      <View style={styles.rowActions}>
+        <TouchableOpacity style={[styles.smallButton, styles.manageButton]} onPress={() => onManage(volunteer)}><Text style={styles.smallButtonText}>Manage</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.smallButton, styles.analyticsButton]} onPress={() => onAnalytics(volunteer.volunteerId)}><Text style={styles.smallButtonText}>Analytics</Text></TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
 export default function AdminVolunteersScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
   const [query, setQuery] = useState<AdminVolunteerQuery>({});
@@ -105,19 +134,29 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   const volunteers = data?.volunteers ?? [];
-  const summary = useMemo(() => ({
+  const summary = useMemo(() => volunteers.reduce((counts, volunteer) => {
+    const type = volunteer.enrollmentType?.toUpperCase();
+    const status = volunteer.status.toUpperCase();
+    if (type === 'S') counts.students += 1;
+    if (type === 'T') counts.teachers += 1;
+    if (type === 'A') counts.admins += 1;
+    if (status === 'ACTIVE') counts.active += 1;
+    if (status === 'INACTIVE') counts.inactive += 1;
+    if (status === 'DROPPED') counts.dropped += 1;
+    return counts;
+  }, {
     total: volunteers.length,
-    students: volunteers.filter((volunteer) => volunteer.enrollmentType?.toUpperCase() === 'S').length,
-    teachers: volunteers.filter((volunteer) => volunteer.enrollmentType?.toUpperCase() === 'T').length,
-    admins: volunteers.filter((volunteer) => volunteer.enrollmentType?.toUpperCase() === 'A').length,
-    active: volunteers.filter((volunteer) => volunteer.status.toUpperCase() === 'ACTIVE').length,
-    inactive: volunteers.filter((volunteer) => volunteer.status.toUpperCase() === 'INACTIVE').length,
-    dropped: volunteers.filter((volunteer) => volunteer.status.toUpperCase() === 'DROPPED').length,
+    students: 0,
+    teachers: 0,
+    admins: 0,
+    active: 0,
+    inactive: 0,
+    dropped: 0,
   }), [volunteers]);
   const editErrors = useMemo(() => validationErrors(edit), [edit]);
   const currentAdministrator = Boolean(selected && selected.volunteerId.toLowerCase() === user?.volunteerId?.toLowerCase());
 
-  const choose = (volunteer: AdminVolunteer) => {
+  const choose = useCallback((volunteer: AdminVolunteer) => {
     setSelected(volunteer);
     setModalError('');
     setDropReason('');
@@ -127,7 +166,11 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
       enrollmentType: volunteer.enrollmentType ?? '', slotEligible: volunteer.slotEligible ?? false,
     });
     setEditModal(true);
-  };
+  }, []);
+
+  const openAnalytics = useCallback((volunteerId: string) => {
+    navigation.navigate('AdminVolunteerAnalytics', { vid: volunteerId });
+  }, [navigation]);
 
   const closeModals = () => {
     if (processingAction) return;
@@ -167,7 +210,15 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
 
   return <View style={styles.page}>
     <TopNavbar title="Manage Volunteers" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} colors={[colors.primary]} tintColor={colors.primary} />}>
+    <FlatList
+      data={!loading && data ? volunteers : []}
+      keyExtractor={volunteerKeyExtractor}
+      renderItem={({ item }) => <VolunteerCard volunteer={item} onManage={choose} onAnalytics={openAnalytics} />}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} colors={[colors.primary]} tintColor={colors.primary} />}
+      ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+      ListHeaderComponent={<View style={styles.listHeader}>
       {notice ? <AlertBox type={notice.type} message={notice.message} /> : null}
       {!loading && data ? <>
         <Text style={styles.sectionTitle}>Volunteer Summary</Text>
@@ -199,16 +250,10 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
       {!loading && error ? <View style={styles.errorState}><AlertBox type="error" message={error} /><TouchableOpacity style={styles.retryButton} onPress={() => void load()}><Text style={styles.actionButtonText}>Retry</Text></TouchableOpacity></View> : null}
       {!loading && data ? <>
         <Text style={styles.countText}>{data.total} Volunteers</Text>
-        {volunteers.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No volunteers match the selected filters.</Text></View> : volunteers.map((volunteer) => (
-          <View key={volunteer.volunteerId} style={styles.volunteerCard}>
-            <View style={styles.cardHeader}><View style={styles.identity}><Text style={styles.name}>{volunteer.name}</Text><Text style={styles.vid}>{volunteer.volunteerId}</Text><Text style={styles.meta}>{volunteer.enrollmentType ?? '-'} • {volunteer.trackType ?? '-'}</Text>{volunteer.groupId ? <Text style={styles.meta}>Group: {volunteer.groupName ?? volunteer.groupId}</Text> : null}</View><View style={[styles.badge, volunteer.status === 'ACTIVE' ? styles.activeBadge : volunteer.status === 'INACTIVE' ? styles.inactiveBadge : styles.droppedBadge]}><Text style={[styles.badgeText, volunteer.status === 'ACTIVE' ? styles.activeText : volunteer.status === 'INACTIVE' ? styles.inactiveText : styles.droppedText]}>{volunteer.status}</Text></View></View>
-            {volunteer.phoneNumber || volunteer.email ? <View style={styles.contact}>{volunteer.phoneNumber ? <Text style={styles.contactText}>📞 {volunteer.phoneNumber}</Text> : null}{volunteer.email ? <Text style={styles.contactText}>✉ {volunteer.email}</Text> : null}</View> : null}
-            {volunteer.statusReason ? <Text style={styles.reason}>Reason: {volunteer.statusReason}</Text> : null}
-            <View style={styles.rowActions}><TouchableOpacity style={[styles.smallButton, styles.manageButton]} onPress={() => choose(volunteer)}><Text style={styles.smallButtonText}>Manage</Text></TouchableOpacity><TouchableOpacity style={[styles.smallButton, styles.analyticsButton]} onPress={() => navigation.navigate('AdminVolunteerAnalytics', { vid: volunteer.volunteerId })}><Text style={styles.smallButtonText}>Analytics</Text></TouchableOpacity></View>
-          </View>
-        ))}
       </> : null}
-    </ScrollView>
+      </View>}
+      ListEmptyComponent={!loading && data ? <View style={styles.emptyCard}><Text style={styles.emptyText}>No volunteers match the selected filters.</Text></View> : null}
+    />
 
     <Modal visible={editModal} transparent animationType="slide" onRequestClose={closeModals}>
       <View style={styles.modalOverlay}><View style={styles.modalBox}><ScrollView keyboardShouldPersistTaps="handled">
@@ -233,7 +278,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.bg }, content: { padding: spacing.md, gap: spacing.md, paddingBottom: 40 },
+  page: { flex: 1, backgroundColor: colors.bg }, content: { padding: spacing.md, paddingBottom: 40 }, listHeader: { gap: spacing.md, marginBottom: spacing.md }, listSeparator: { height: spacing.md },
   sectionTitle: { color: colors.navy, fontSize: 20, ...fonts.extraBold }, sectionSubtitle: { color: colors.textMuted, fontSize: 13, marginTop: -spacing.sm }, statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   filterCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.card, gap: spacing.sm }, cardTitle: { color: colors.navy, fontSize: 16, ...fonts.bold }, searchInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, padding: spacing.sm, fontSize: 14, backgroundColor: colors.bg }, filterGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, filterCell: { width: '48%', flexGrow: 1, gap: 4 }, filterLabel: { fontSize: 10, color: colors.textMuted, ...fonts.semiBold, letterSpacing: 0.8 }, groupInput: { borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.bg, fontSize: 13 }, filterActions: { flexDirection: 'row', gap: spacing.sm }, actionButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: borderRadius.md, alignItems: 'center' }, searchButton: { backgroundColor: colors.navy }, resetButton: { backgroundColor: colors.borderLight }, dropButton: { backgroundColor: colors.maroon }, actionButtonText: { color: colors.white, ...fonts.semiBold }, resetButtonText: { color: colors.textDark, ...fonts.semiBold },
   selectTrigger: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight, borderRadius: borderRadius.md, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.bg }, selectTriggerText: { flex: 1, fontSize: 13, color: colors.textDark, ...fonts.medium }, selectArrow: { fontSize: 12, color: colors.textMuted }, selectOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 40 }, selectSheet: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.lg }, selectTitle: { fontSize: 15, color: colors.textDark, ...fonts.bold, marginBottom: 12 }, selectRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 }, radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' }, radioSelected: { borderColor: colors.navy }, radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.navy }, selectRowLabel: { fontSize: 14, color: colors.textDark },
