@@ -30,6 +30,7 @@ import AdminAttendanceConfigScreen from './src/screens/AdminAttendanceConfigScre
 import AdminReportsScreen from './src/screens/AdminReportsScreen';
 import AdminGroupDetailScreen from './src/screens/AdminGroupDetailScreen';
 import AccountSettingsScreen from './src/screens/AccountSettingsScreen';
+import StudentNewEnrollmentScreen from './src/screens/StudentNewEnrollmentScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -91,6 +92,7 @@ function AppNavigator() {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="MyLearning" component={MyLearningScreen} />
+        <Stack.Screen name="StudentNewEnrollment" component={StudentNewEnrollmentScreen} />
         <Stack.Screen name="StudentDashboard" component={StudentHomeScreen} />
         <Stack.Screen name="StudentSlots" component={StudentSlotsScreen} />
         <Stack.Screen name="StudentGrades" component={StudentGradesScreen} />

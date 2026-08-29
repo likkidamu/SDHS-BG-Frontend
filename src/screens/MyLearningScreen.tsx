@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AlertBox, Footer, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -22,7 +22,7 @@ import { useSelectedEnrollment } from '../features/enrollment/SelectedEnrollment
 import { getLearningEnrollments } from '../features/enrollment/service';
 import { borderRadius, colors, fonts, shadows, spacing } from '../theme';
 
-type Props = { navigation: NativeStackNavigationProp<any> };
+type Props = NativeStackScreenProps<any, 'MyLearning'>;
 
 const SECTIONS: ReadonlyArray<{ status: EnrollmentStatus; title: string }> = [
   { status: 'ACTIVE', title: 'Active Learning' },
@@ -119,20 +119,25 @@ function ActionButton({ label, onPress, secondary = false }: { label: string; on
   return <TouchableOpacity style={[styles.actionButton, secondary && styles.actionButtonSecondary]} onPress={onPress}><Text style={[styles.actionText, secondary && styles.actionTextSecondary]}>{label}</Text></TouchableOpacity>;
 }
 
-export default function MyLearningScreen({ navigation }: Props) {
+export default function MyLearningScreen({ navigation, route }: Props) {
   const { logout } = useAuth();
   const { selectEnrollment } = useSelectedEnrollment();
   const [enrollments, setEnrollments] = useState<LearningEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     try {
       setError('');
       setEnrollments(await getLearningEnrollments());
     } catch (requestError: any) {
-      setError(requestError.response?.data?.error || 'Unable to load learning enrollments.');
+      setError(
+        requestError.response?.data?.error
+          ?? requestError.response?.data?.message
+          ?? 'Unable to load learning enrollments.',
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -140,6 +145,13 @@ export default function MyLearningScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (route.params?.enrollmentRequestSuccess) {
+      setNotice('Enrollment request submitted successfully.');
+      navigation.setParams({ enrollmentRequestSuccess: undefined });
+    }
+  }, [navigation, route.params?.enrollmentRequestSuccess]);
 
   const grouped = useMemo(() => {
     const result = new Map<EnrollmentStatus, LearningEnrollment[]>();
@@ -158,10 +170,28 @@ export default function MyLearningScreen({ navigation }: Props) {
       <TopNavbar title="My Learning" actions={[{ label: 'Logout', onPress: logout, variant: 'logout' }]} />
       {loading ? <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View> : (
         <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}>
-          <Text style={styles.title}>My Learning</Text>
-          <Text style={styles.subtitle}>Select a learning enrollment to open your dashboard.</Text>
-          {error ? <AlertBox type="error" message={error} /> : null}
-          {!error && enrollments.length === 0 ? <Text style={styles.empty}>You do not have a learning enrollment yet.</Text> : null}
+          <View style={styles.headingRow}>
+            <View style={styles.headingText}>
+              <Text style={styles.title}>My Learning</Text>
+              <Text style={styles.subtitle}>Select a learning enrollment to open your dashboard.</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.newEnrollmentButton}
+              onPress={() => navigation.navigate('StudentNewEnrollment')}
+            >
+              <Text style={styles.newEnrollmentText}>New Enrollment</Text>
+            </TouchableOpacity>
+          </View>
+          {notice ? <AlertBox type="success" message={notice} /> : null}
+          {error ? (
+            <View style={styles.errorState}>
+              <AlertBox type="error" message={error} />
+              <TouchableOpacity style={styles.retryButton} onPress={() => void load()}>
+                <Text style={styles.retryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          {!error && enrollments.length === 0 ? <Text style={styles.empty}>You do not have a learning enrollment yet. Select New Enrollment to request a learning program.</Text> : null}
           {!error ? SECTIONS.map(({ status, title }) => {
             const items = grouped.get(status) ?? [];
             if (items.length === 0) return null;
@@ -178,8 +208,15 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: spacing.md, gap: spacing.md },
+  headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  headingText: { flex: 1, gap: spacing.sm },
   title: { fontSize: 26, color: colors.textDark, ...fonts.extraBold },
-  subtitle: { fontSize: 14, color: colors.textMuted, marginTop: -8 },
+  subtitle: { fontSize: 14, color: colors.textMuted },
+  newEnrollmentButton: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.navy, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  newEnrollmentText: { color: colors.navy, fontSize: 13, ...fonts.bold },
+  errorState: { gap: spacing.sm },
+  retryButton: { alignSelf: 'flex-start', backgroundColor: colors.navy, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  retryText: { color: colors.white, fontSize: 13, ...fonts.bold },
   empty: { padding: spacing.lg, textAlign: 'center', color: colors.textMuted, backgroundColor: colors.white, borderRadius: borderRadius.lg },
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: 19, color: colors.navy, ...fonts.bold, marginTop: spacing.sm },
