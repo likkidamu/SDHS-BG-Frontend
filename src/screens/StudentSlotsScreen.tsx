@@ -62,6 +62,7 @@ function validateSlokaCount(chapter: StudentChapter, value: string) {
 export default function StudentSlotsScreen({ navigation }: Props) {
   const { logout } = useAuth();
   const { selectedEnrollment, clearSelectedEnrollment } = useSelectedEnrollment();
+  const revision = selectedEnrollment ? enrollmentProgram(selectedEnrollment) === 'REVISION' : false;
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentSlotsResponse | null>(null);
@@ -170,7 +171,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
       setError('Please select a chapter.');
       return;
     }
-    const firstError = validateSlokaCount(selectedChapter, slokaCount);
+    const firstError = revision ? null : validateSlokaCount(selectedChapter, slokaCount);
     if (firstError) {
       setError(firstError);
       return;
@@ -179,7 +180,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
     const body: BookStudentSlotRequest = {
       slotId: selectedSlotId,
       chapterId: selectedChapter.id,
-      slokaCount: Number(slokaCount),
+      ...(!revision ? { slokaCount: Number(slokaCount) } : {}),
     };
 
     if (addSecondChapter) {
@@ -187,13 +188,13 @@ export default function StudentSlotsScreen({ navigation }: Props) {
         setError('Please select a second chapter or uncheck the option.');
         return;
       }
-      const secondError = validateSlokaCount(selectedChapter2, slokaCount2);
+      const secondError = revision ? null : validateSlokaCount(selectedChapter2, slokaCount2);
       if (secondError) {
         setError(secondError);
         return;
       }
       body.chapterId2 = selectedChapter2.id;
-      body.slokaCount2 = Number(slokaCount2);
+      if (!revision) body.slokaCount2 = Number(slokaCount2);
     }
 
     const replacing = data?.existingBookings.some((existing) => !existing.cancelled) ?? false;
@@ -446,6 +447,9 @@ export default function StudentSlotsScreen({ navigation }: Props) {
             )}
 
             {/* Sloka count */}
+            {revision ? (
+              selectedChapter ? <Text style={styles.fieldHint}>Sloka Range: Whole Chapter</Text> : null
+            ) : <>
             <Text style={styles.fieldLabel}>Number of Slokas</Text>
             <TextInput
               style={styles.textInput}
@@ -465,6 +469,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                   : `Chapter total: ${selectedChapter.totalSlokas}`}
               </Text>
             )}
+            </>}
 
             {/* Second chapter toggle */}
             <TouchableOpacity
@@ -497,6 +502,9 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                   },
                 )}
 
+                {revision ? (
+                  selectedChapter2 ? <Text style={styles.fieldHint}>Sloka Range: Whole Chapter</Text> : null
+                ) : <>
                 <Text style={styles.fieldLabel}>Number of Slokas (Chapter 2)</Text>
                 <TextInput
                   style={styles.textInput}
@@ -516,6 +524,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                       : `Chapter total: ${selectedChapter2.totalSlokas}`}
                   </Text>
                 )}
+                </>}
               </View>
             )}
 
@@ -553,7 +562,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
                     Ch {bk.chapterNumber} - {bk.chapterName}
                   </Text>
                   <Text style={styles.bookingDetail}>
-                    {bk.slokaCount} sloka{bk.slokaCount !== 1 ? 's' : ''} &middot; {bk.date}
+                    {revision ? 'Whole Chapter' : `${bk.slokaCount} sloka${bk.slokaCount !== 1 ? 's' : ''}`} &middot; {bk.date}
                   </Text>
                   {bk.cancelled && (
                     <View style={styles.cancelledBadge}>

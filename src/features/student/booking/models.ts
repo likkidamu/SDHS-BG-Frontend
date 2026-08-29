@@ -41,7 +41,7 @@ export interface StudentSlotsResponse {
 export interface BookStudentSlotRequest {
   slotId: number;
   chapterId: number;
-  slokaCount: number;
+  slokaCount?: number;
   date?: string;
   chapterId2?: number;
   slokaCount2?: number;

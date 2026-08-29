@@ -26,6 +26,7 @@ export interface ExistingBooking {
   chapterNumber?: number;
   chapterName?: string;
   slokaCount: number | null;
+  programType?: TrackType;
   assignedTeacherName?: string;
 }
 
@@ -49,7 +50,7 @@ export interface BulkBookingEntry {
   date: string;
   slotId: number;
   chapterId: number;
-  slokaCount: number;
+  slokaCount?: number;
   chapterId2?: number;
   slokaCount2?: number;
 }

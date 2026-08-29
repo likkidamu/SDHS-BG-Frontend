@@ -249,7 +249,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
     const setAllowed = second ? setAllowedSlokas2 : setAllowedSlokas;
     const setLoadingState = second ? setSlokaLoading2 : setSlokaLoading;
     const setErrorState = second ? setSlokaError2 : setSlokaError;
-    if (!volunteerId || !chapterId) {
+    if (trackType === 'REVISION' || !volunteerId || !chapterId) {
       setAllowed([]);
       setErrorState('');
       return;
@@ -302,22 +302,23 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       setNotice({ type: 'error', summary: 'Track Type is required.' });
       return;
     }
-    if (!editor.volunteerId || !editor.slotId || !editor.chapterId || !editor.slokaCount) {
-      setNotice({ type: 'error', summary: 'Student, slot, chapter, and sloka count are required.' });
+    const revision = trackType === 'REVISION';
+    if (!editor.volunteerId || !editor.slotId || !editor.chapterId || (!revision && !editor.slokaCount)) {
+      setNotice({ type: 'error', summary: revision ? 'Student, slot, and chapter are required.' : 'Student, slot, chapter, and sloka count are required.' });
       return;
     }
-    const slokaCount = parseInt(editor.slokaCount, 10);
-    if (!allowedSlokas.includes(slokaCount)) {
+    const slokaCount = revision ? undefined : parseInt(editor.slokaCount, 10);
+    if (!revision && !allowedSlokas.includes(slokaCount!)) {
       setNotice({ type: 'error', summary: allowedSlokas.length ? `Allowed sloka counts: ${allowedSlokas.join(', ')}` : 'No allowed sloka count is available.' });
       return;
     }
-    if (editor.useSecondChapter && (!editor.chapterId2 || !editor.slokaCount2)) {
-      setNotice({ type: 'error', summary: 'Second chapter and sloka count are required.' });
+    if (editor.useSecondChapter && (!editor.chapterId2 || (!revision && !editor.slokaCount2))) {
+      setNotice({ type: 'error', summary: revision ? 'Second chapter is required.' : 'Second chapter and sloka count are required.' });
       return;
     }
     const chapterId2 = editor.chapterId2 ? parseInt(editor.chapterId2, 10) : undefined;
     const slokaCount2 = editor.slokaCount2 ? parseInt(editor.slokaCount2, 10) : undefined;
-    if (editor.useSecondChapter && slokaCount2 !== undefined && !allowedSlokas2.includes(slokaCount2)) {
+    if (!revision && editor.useSecondChapter && slokaCount2 !== undefined && !allowedSlokas2.includes(slokaCount2)) {
       setNotice({ type: 'error', summary: allowedSlokas2.length ? `Allowed second-chapter sloka counts: ${allowedSlokas2.join(', ')}` : 'No allowed sloka count is available for the second chapter.' });
       return;
     }
@@ -331,7 +332,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
       date,
       slotId: parseInt(editor.slotId, 10),
       chapterId: parseInt(editor.chapterId, 10),
-      slokaCount,
+      ...(!revision ? { slokaCount } : {}),
       ...(editor.useSecondChapter ? { chapterId2, slokaCount2 } : {}),
     }]);
     resetEditor();
@@ -510,7 +511,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                   </View>
                 </ScrollView>
 
-                {editor.chapterId ? (
+                {editor.chapterId ? trackType === 'REVISION' ? (
+                  <Text style={styles.noSlokasText}>Sloka Range: Whole Chapter</Text>
+                ) : (
                   <>
                     <Text style={styles.fieldLabel}>Slokas (1–N)</Text>
                     {slokaLoading ? (
@@ -572,7 +575,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                         ))}
                       </View>
                     </ScrollView>
-                    {editor.chapterId2 ? (
+                    {editor.chapterId2 ? trackType === 'REVISION' ? (
+                      <Text style={styles.noSlokasText}>Sloka Range: Whole Chapter</Text>
+                    ) : (
                       <>
                         <Text style={styles.fieldLabel}>Sloka Count 2</Text>
                         {slokaLoading2 ? (
@@ -618,9 +623,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                     <Text style={styles.bookingName}>{entry.studentName}</Text>
                     <Text style={styles.bookingMeta}>{entry.volunteerId} • {trackType === 'MEMORIZATION' ? 'Memorization' : 'Revision'}</Text>
                     <Text style={styles.bookingMeta}>{slot?.name ?? `Slot ${entry.slotId}`}</Text>
-                    <Text style={styles.bookingMeta}>Ch {chapter?.chapterNumber ?? entry.chapterId} — 1–{entry.slokaCount}</Text>
-                    {entry.chapterId2 && entry.slokaCount2 ? (
-                      <Text style={styles.bookingMeta}>Ch {chapter2?.chapterNumber ?? entry.chapterId2} — 1–{entry.slokaCount2}</Text>
+                    <Text style={styles.bookingMeta}>Ch {chapter?.chapterNumber ?? entry.chapterId} — {trackType === 'REVISION' ? 'Whole Chapter' : `1–${entry.slokaCount}`}</Text>
+                    {entry.chapterId2 ? (
+                      <Text style={styles.bookingMeta}>Ch {chapter2?.chapterNumber ?? entry.chapterId2} — {trackType === 'REVISION' ? 'Whole Chapter' : `1–${entry.slokaCount2}`}</Text>
                     ) : null}
                   </View>
                   <TouchableOpacity style={styles.delBtn} onPress={() => setStagedEntries(current => current.filter((_, itemIndex) => itemIndex !== index))}>
@@ -647,7 +652,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bookingName}>{b.studentName}</Text>
                   <Text style={styles.bookingMeta}>{b.volunteerId} • {b.slotName ?? '-'}</Text>
-                  <Text style={styles.bookingMeta}>{existingChapterLabel(b)} — {b.slokaCount === null ? '-' : `1–${b.slokaCount}`}</Text>
+                  <Text style={styles.bookingMeta}>{existingChapterLabel(b)} — {b.programType === 'REVISION' ? 'Whole Chapter' : b.slokaCount === null ? '-' : `1–${b.slokaCount}`}</Text>
                   <Text style={styles.bookingMeta}>Teacher: {b.assignedTeacherName ?? '-'}</Text>
                 </View>
                 <TouchableOpacity
