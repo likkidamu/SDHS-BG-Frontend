@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, shadows, borderRadius, fonts } from '../theme';
+import { colors, borderRadius, spacing, typography } from '../theme';
+import IconGlyph from './IconGlyph';
 
 type Props = {
   value: string | number;
@@ -22,7 +23,7 @@ function StatCard({
   return (
     <View style={styles.container}>
       <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-        <Text style={[styles.iconText, { color: iconColor }]}>{iconLabel}</Text>
+        <IconGlyph glyph={iconLabel} size={19} color={iconColor} />
       </View>
       <Text style={[styles.value, { color: valueColor }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
@@ -34,37 +35,33 @@ export default React.memo(StatCard);
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: 16,
-    ...shadows.card,
+    minHeight: 102,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.borderLight,
+    borderTopWidth: 2,
+    borderTopColor: colors.accent,
   },
   iconWrap: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-  },
-  iconText: {
-    fontSize: 18,
+    marginBottom: spacing.sm,
   },
   value: {
-    fontSize: 24,
-    ...fonts.extraBold,
-    lineHeight: 28,
+    ...typography.pageTitle,
   },
   label: {
-    fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     color: colors.textMuted,
     marginTop: 4,
-    ...fonts.semiBold,
+    ...typography.label,
     textAlign: 'center',
   },
 });

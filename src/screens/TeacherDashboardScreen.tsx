@@ -12,7 +12,7 @@ import {
   RefreshControl,
   Linking,
 } from 'react-native';
-import { TopNavbar, StatCard, ContentCard, AlertBox, AsyncState, Footer } from '../components';
+import { TopNavbar, StatCard, ContentCard, AlertBox, AsyncState, Footer, StatusBadge } from '../components';
 import { colors, shadows, borderRadius, fonts, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import type { TeacherGradingBooking } from '../features/teacher/grading/models';
@@ -321,14 +321,10 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             ) : null}
           </View>
           {graded && !changed && (
-            <View style={styles.gradedBadge}>
-              <Text style={styles.gradedBadgeText}>Graded</Text>
-            </View>
+            <StatusBadge status="GRADED" label="Graded" />
           )}
           {booking.cancelled && (
-            <View style={styles.cancelledBadge}>
-              <Text style={styles.cancelledBadgeText}>Cancelled</Text>
-            </View>
+            <StatusBadge status="CANCELLED" label="Cancelled" />
           )}
         </View>
 
@@ -763,13 +759,13 @@ const styles = StyleSheet.create({
 
   // Booking card
   bookingCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     ...shadows.card,
     borderWidth: 1,
     borderColor: colors.borderLight,
     padding: spacing.md,
-    gap: 12,
+    gap: spacing.smd,
   },
   bookingHeader: {
     flexDirection: 'row',
@@ -794,38 +790,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textDecorationLine: 'underline',
   },
-  gradedBadge: {
-    backgroundColor: colors.greenBg,
-    borderWidth: 1,
-    borderColor: colors.greenLight,
-    borderRadius: borderRadius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-  gradedBadgeText: {
-    fontSize: 11,
-    color: colors.green,
-    ...fonts.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  cancelledBadge: {
-    backgroundColor: colors.errorBg,
-    borderWidth: 1,
-    borderColor: colors.errorBorder,
-    borderRadius: borderRadius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginLeft: 6,
-  },
-  cancelledBadgeText: {
-    fontSize: 11,
-    color: colors.errorText,
-    ...fonts.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
   // Details row
   detailsRow: {
     flexDirection: 'row',

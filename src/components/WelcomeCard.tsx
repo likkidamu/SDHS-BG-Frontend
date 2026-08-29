@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, shadows, borderRadius, fonts } from '../theme';
+import { colors, shadows, borderRadius, spacing, typography } from '../theme';
 
 type Badge = {
   label: string;
@@ -36,10 +36,10 @@ export default React.memo(WelcomeCard);
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     ...shadows.card,
-    padding: 28,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
     position: 'relative',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   decorCircle: {
     position: 'absolute',
@@ -60,37 +60,35 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(230,81,0,0.04)',
+    backgroundColor: colors.accentWash,
   },
   greeting: {
-    fontSize: 12,
-    ...fonts.bold,
+    ...typography.label,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    color: colors.primary,
-    marginBottom: 4,
+    color: colors.accentStrong,
+    marginBottom: spacing.xs,
   },
   name: {
-    fontSize: 24,
-    ...fonts.extraBold,
     color: colors.navy,
-    lineHeight: 30,
+    ...typography.pageTitle,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
+    gap: spacing.sm,
+    marginTop: spacing.smd,
     flexWrap: 'wrap',
   },
   badge: {
-    backgroundColor: '#e8eaf6',
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    backgroundColor: colors.infoBg,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.smd,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    borderColor: colors.infoBorder,
   },
   badgeText: {
     color: colors.navy,
-    fontSize: 12,
-    ...fonts.bold,
+    ...typography.label,
   },
 });

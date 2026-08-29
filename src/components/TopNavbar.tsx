@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
-import { colors, shadows, fonts } from '../theme';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { borderRadius, colors, shadows, spacing, typography } from '../theme';
 
 type NavAction = {
   label: string;
@@ -23,16 +23,17 @@ export default function TopNavbar({ title, actions = [] }: Props) {
         <Text style={styles.brand} numberOfLines={2}>{title}</Text>
         <View style={styles.actions}>
           {actions.map((action, i) => (
-            <TouchableOpacity
+            <Pressable
               key={i}
-              style={[
+              style={({ pressed }) => [
                 styles.navBtn,
                 action.variant === 'logout' && styles.navBtnLogout,
+                pressed && styles.navBtnPressed,
               ]}
               onPress={action.onPress}
             >
               <Text style={styles.navBtnText}>{action.label}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       </View>
@@ -45,43 +46,44 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.navy,
     paddingTop: 48,
-    paddingBottom: 14,
+    paddingBottom: spacing.smd,
     ...shadows.navbar,
   },
   inner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   brand: {
-    color: '#fff',
-    fontSize: 17,
-    ...fonts.extraBold,
+    color: colors.textOnPrimary,
+    ...typography.appTitle,
     letterSpacing: -0.3,
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing.smd,
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   navBtn: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    minHeight: 44,
+    justifyContent: 'center',
+    backgroundColor: colors.controlOnPrimary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    borderColor: colors.controlOnPrimaryBorder,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.smd,
   },
   navBtnLogout: {
-    backgroundColor: 'rgba(230,81,0,0.25)',
-    borderColor: 'rgba(230,81,0,0.4)',
+    backgroundColor: colors.controlAccentOnPrimary,
+    borderColor: colors.controlAccentBorder,
   },
+  navBtnPressed: { opacity: 0.72 },
   navBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    ...fonts.semiBold,
+    color: colors.textOnPrimary,
+    ...typography.button,
   },
   gradientBar: {
     position: 'absolute',
@@ -89,6 +91,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
 });

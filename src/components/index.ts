@@ -9,3 +9,6 @@ export { default as Footer } from './Footer';
 export { default as ActionGrid } from './ActionGrid';
 export { default as AsyncState } from './AsyncState';
 export { showConfirmationDialog } from './ConfirmationDialog';
+export { default as Button } from './Button';
+export { default as IconGlyph } from './IconGlyph';
+export { default as StatusBadge } from './StatusBadge';

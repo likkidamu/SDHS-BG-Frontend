@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, borderRadius, fonts } from '../theme';
+import { colors, borderRadius, shadows, spacing, typography } from '../theme';
 
 type AlertType = 'error' | 'success' | 'info' | 'warning';
 
@@ -27,14 +27,13 @@ export default function AlertBox({ type, message }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.smd,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    marginBottom: 16,
+    ...shadows.card,
   },
   text: {
-    fontSize: 14,
-    ...fonts.medium,
+    ...typography.bodyStrong,
   },
 });

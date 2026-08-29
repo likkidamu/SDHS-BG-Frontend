@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, shadows, borderRadius, fonts } from '../theme';
+import { colors, shadows, borderRadius, spacing, typography } from '../theme';
 
 type Props = {
   title: string;
@@ -15,7 +15,7 @@ export default function ContentCard({
   rightLabel,
   children,
 }: Props) {
-  const headerBg = headerVariant === 'orange' ? colors.primary : colors.navy;
+  const headerBg = headerVariant === 'orange' ? colors.accentSoft : colors.surfaceHeader;
 
   return (
     <View style={styles.container}>
@@ -34,37 +34,40 @@ export default function ContentCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     ...shadows.card,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
   header: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    minHeight: 52,
+    paddingVertical: spacing.smd,
+    paddingHorizontal: spacing.mdl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent,
   },
   headerText: {
-    color: '#fff',
-    fontSize: 15,
-    ...fonts.bold,
+    color: colors.textDark,
+    ...typography.cardTitle,
   },
   headerBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 3,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceSubtle,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.smd,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   headerBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    ...fonts.bold,
+    color: colors.textBody,
+    ...typography.label,
   },
   body: {
-    padding: 24,
+    padding: spacing.mdl,
   },
 });

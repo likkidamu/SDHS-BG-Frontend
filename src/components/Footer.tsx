@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fonts } from '../theme';
+import { colors, spacing, typography } from '../theme';
 
 export default function Footer() {
   return (
@@ -14,18 +14,17 @@ export default function Footer() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.mdl,
     alignItems: 'center',
   },
   text: {
-    fontSize: 11,
     color: colors.textMuted,
     letterSpacing: 0.3,
-    ...fonts.regular,
+    ...typography.caption,
   },
   highlight: {
     color: colors.primary,
-    ...fonts.semiBold,
+    ...typography.label,
   },
 });

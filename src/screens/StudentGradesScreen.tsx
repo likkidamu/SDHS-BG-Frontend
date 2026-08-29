@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   clearButtonText: { color: colors.navy, fontSize: 12, ...fonts.bold },
   emptyText: { color: colors.textMuted, fontSize: 14, lineHeight: 20,
     paddingVertical: spacing.lg, textAlign: 'center', ...fonts.medium },
-  gradeCard: { backgroundColor: colors.bg, borderRadius: borderRadius.lg, borderWidth: 1,
+  gradeCard: { backgroundColor: colors.surfaceSubtle, borderRadius: borderRadius.lg, borderWidth: 1,
     borderLeftWidth: 3, borderColor: colors.borderLight, borderLeftColor: colors.primary,
     padding: spacing.md, marginBottom: spacing.sm },
   cancelledCard: { opacity: 0.62 },

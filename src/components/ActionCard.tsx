@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, shadows, borderRadius, fonts } from '../theme';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { colors, shadows, borderRadius, spacing, typography } from '../theme';
+import IconGlyph from './IconGlyph';
 
 type Props = {
   title: string;
@@ -22,18 +23,17 @@ function ActionCard({
   disabled = false,
 }: Props) {
   return (
-    <TouchableOpacity
-      style={styles.container}
+    <Pressable
+      style={({ pressed }) => [styles.container, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
     >
       <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-        <Text style={[styles.iconText, { color: iconColor }]}>{iconLabel}</Text>
+        <IconGlyph glyph={iconLabel} size={23} color={iconColor} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.desc}>{description}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -41,37 +41,35 @@ export default React.memo(ActionCard);
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
+    minHeight: 148,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     ...shadows.card,
-    paddingVertical: 22,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.mdl,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
+  pressed: { opacity: 0.78, transform: [{ scale: 0.985 }] },
+  disabled: { opacity: 0.52, backgroundColor: colors.disabledBg },
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.lg,
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-  },
-  iconText: {
-    fontSize: 24,
+    marginBottom: spacing.smd,
   },
   title: {
-    ...fonts.bold,
-    fontSize: 14,
     color: colors.textDark,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
+    ...typography.cardTitle,
   },
   desc: {
-    fontSize: 12,
     color: colors.textMuted,
-    ...fonts.medium,
     textAlign: 'center',
+    ...typography.caption,
   },
 });

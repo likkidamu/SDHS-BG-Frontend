@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { colors, shadows, borderRadius, fonts } from '../theme';
-import { AlertBox, Footer } from '../components';
+import { AlertBox, Footer, IconGlyph } from '../components';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
@@ -59,7 +59,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Enter your Volunteer ID"
-              placeholderTextColor="#bbb"
+              placeholderTextColor={colors.disabled}
               value={volunteerId}
               onChangeText={setVolunteerId}
               autoCapitalize="characters"
@@ -71,7 +71,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="Enter your password"
-              placeholderTextColor="#bbb"
+              placeholderTextColor={colors.disabled}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -102,7 +102,7 @@ export default function LoginScreen() {
         {/* Contact Section */}
         <View style={styles.contactCard}>
           <View style={styles.contactIcon}>
-            <Text style={styles.contactIconText}>{'📞'}</Text>
+            <IconGlyph glyph="📞" size={20} color={colors.textOnPrimary} />
           </View>
           <View style={styles.contactBody}>
             <Text style={styles.contactTitle}>Want to join SDHS Volunteers?</Text>
@@ -129,10 +129,10 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     alignItems: 'center',
     borderBottomWidth: 3,
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.accent,
   },
   topBarText: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontSize: 17,
     ...fonts.bold,
   },
@@ -145,8 +145,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   loginCard: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xxl,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
     ...shadows.card,
@@ -161,14 +161,14 @@ const styles = StyleSheet.create({
   labelDash: {
     width: 20,
     height: 2,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     borderRadius: 1,
   },
   label: {
     fontSize: 11,
     ...fonts.bold,
     letterSpacing: 1.5,
-    color: colors.primary,
+    color: colors.accentStrong,
   },
   title: {
     fontSize: 24,
@@ -191,14 +191,14 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     borderWidth: 2,
-    borderColor: '#eee',
+    borderColor: colors.borderLight,
     borderRadius: borderRadius.md,
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 14,
     ...fonts.medium,
     color: colors.textDark,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.input,
   },
   eyeBtn: {
     position: 'absolute',
@@ -208,11 +208,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   eyeText: {
-    color: '#bbb',
+    color: colors.textMuted,
     fontSize: 13,
     ...fonts.semiBold,
   },
   submitBtn: {
+    minHeight: 48,
     backgroundColor: colors.navy,
     borderRadius: borderRadius.md,
     paddingVertical: 15,
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitText: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontSize: 14,
     ...fonts.bold,
     letterSpacing: 0.3,
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
   },
   contactCard: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -257,9 +258,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  contactIconText: {
-    fontSize: 18,
   },
   contactBody: {
     flex: 1,

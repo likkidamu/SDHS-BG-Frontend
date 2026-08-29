@@ -1,23 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { fonts } from '../theme';
+import { borderRadius, colors, spacing, typography } from '../theme';
 
 type Props = {
   grade: string | null | undefined;
 };
 
 const gradeConfig: Record<string, { bg: string; color: string }> = {
-  'A+': { bg: '#e8f5e9', color: '#1b5e20' },
-  'A': { bg: '#e8f5e9', color: '#1b5e20' },
-  'B': { bg: '#fff3e0', color: '#e65100' },
-  'C': { bg: '#fff3e0', color: '#e65100' },
-  'Retest': { bg: '#ffebee', color: '#b71c1c' },
-  'Pending': { bg: '#ffebee', color: '#b71c1c' },
+  'A+': { bg: colors.successBg, color: colors.successText },
+  'A': { bg: colors.successBg, color: colors.successText },
+  'B': { bg: colors.warningBg, color: colors.warningText },
+  'C': { bg: colors.warningBg, color: colors.warningText },
+  'Retest': { bg: colors.errorBg, color: colors.errorText },
+  'Pending': { bg: colors.surfaceMuted, color: colors.textMuted },
 };
 
 export default function GradeBadge({ grade }: Props) {
   const value = grade?.trim() || 'Pending';
-  const config = gradeConfig[value] || { bg: '#f5f0eb', color: '#999' };
+  const config = gradeConfig[value] || { bg: colors.surfaceMuted, color: colors.textMuted };
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>
@@ -28,13 +28,14 @@ export default function GradeBadge({ grade }: Props) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    minHeight: 24,
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.smd,
+    borderRadius: borderRadius.pill,
     alignSelf: 'flex-start',
   },
   text: {
-    fontSize: 13,
-    ...fonts.bold,
+    ...typography.status,
   },
 });

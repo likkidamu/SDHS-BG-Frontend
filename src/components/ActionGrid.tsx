@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import type { DimensionValue } from 'react-native';
 import ActionCard from './ActionCard';
+import { spacing } from '../theme';
 
 type ActionItem = {
   title: string;
@@ -39,7 +40,7 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.smd,
   },
   cell: {
     flexGrow: 1,

@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import type { StudentScreenProps } from '../navigation/types';
-import { AlertBox, Footer, TopNavbar } from '../components';
+import { AlertBox, Footer, StatusBadge, TopNavbar } from '../components';
 import { useAuth } from '../context/AuthContext';
 import {
   enrollmentProgram,
@@ -76,7 +76,7 @@ function EnrollmentCard({
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={[styles.badge, styles.programBadge]}><Text style={styles.programBadgeText}>{PROGRAM_LABELS[program]}</Text></View>
-        <View style={[styles.badge, styles.statusBadge]}><Text style={styles.statusBadgeText}>{STATUS_LABELS[status]}</Text></View>
+        <StatusBadge status={status} label={STATUS_LABELS[status]} />
       </View>
 
       <View style={styles.details}>
@@ -212,22 +212,20 @@ const styles = StyleSheet.create({
   headingText: { flex: 1, gap: spacing.sm },
   title: { fontSize: 26, color: colors.textDark, ...fonts.extraBold },
   subtitle: { fontSize: 14, color: colors.textMuted },
-  newEnrollmentButton: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.navy, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: 10 },
+  newEnrollmentButton: { minHeight: 44, justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.navy, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   newEnrollmentText: { color: colors.navy, fontSize: 13, ...fonts.bold },
   errorState: { gap: spacing.sm },
   retryButton: { alignSelf: 'flex-start', backgroundColor: colors.navy, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   retryText: { color: colors.white, fontSize: 13, ...fonts.bold },
-  empty: { padding: spacing.lg, textAlign: 'center', color: colors.textMuted, backgroundColor: colors.white, borderRadius: borderRadius.lg },
+  empty: { padding: spacing.lg, textAlign: 'center', color: colors.textMuted, backgroundColor: colors.surface, borderRadius: borderRadius.lg },
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: 19, color: colors.navy, ...fonts.bold, marginTop: spacing.sm },
   sectionGuidance: { fontSize: 13, color: colors.textMuted },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, gap: spacing.md, ...shadows.card },
+  card: { backgroundColor: colors.card, borderRadius: borderRadius.lg, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: spacing.md, ...shadows.card },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: borderRadius.sm },
   programBadge: { backgroundColor: colors.orangeBg },
-  programBadgeText: { color: colors.primaryDark, fontSize: 12, ...fonts.bold },
-  statusBadge: { backgroundColor: colors.infoBg },
-  statusBadgeText: { color: colors.infoText, fontSize: 12, ...fonts.bold },
+  programBadgeText: { color: colors.accentStrong, fontSize: 12, ...fonts.bold },
   details: { gap: spacing.sm },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
   detailLabel: { color: colors.textMuted, fontSize: 13 },
@@ -245,8 +243,8 @@ const styles = StyleSheet.create({
   indicatorActive: { color: colors.navy, backgroundColor: colors.blueBg },
   indicatorEligible: { color: colors.green, backgroundColor: colors.greenBg },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: spacing.sm },
-  actionButton: { backgroundColor: colors.navy, paddingHorizontal: 15, paddingVertical: 10, borderRadius: borderRadius.sm },
-  actionButtonSecondary: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.navy },
+  actionButton: { minHeight: 44, justifyContent: 'center', backgroundColor: colors.navy, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.sm },
+  actionButtonSecondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.navy },
   actionText: { color: colors.white, fontSize: 13, ...fonts.bold },
   actionTextSecondary: { color: colors.navy },
   pending: { color: colors.primary, fontSize: 13, ...fonts.semiBold, textAlign: 'right' },

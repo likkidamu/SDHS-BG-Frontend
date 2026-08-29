@@ -1,13 +1,8 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { borderRadius, colors, fonts, spacing } from '../theme';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { colors, spacing, typography } from '../theme';
 import AlertBox from './AlertBox';
+import Button from './Button';
 
 type Props = {
   loading?: boolean;
@@ -45,9 +40,7 @@ export default function AsyncState({
       <View style={styles.state}>
         <AlertBox type="error" message={message} />
         {onRetry ? (
-          <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
+          <Button label="Retry" onPress={onRetry} />
         ) : null}
       </View>
     );
@@ -64,18 +57,11 @@ const styles = StyleSheet.create({
   state: { alignItems: 'center', gap: spacing.sm },
   loadingState: { paddingVertical: spacing.xl },
   fill: { flex: 1, justifyContent: 'center' },
-  loadingText: { color: colors.textMuted, fontSize: 14, ...fonts.medium },
-  retryButton: {
-    backgroundColor: colors.navy,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  retryText: { color: colors.white, fontSize: 13, ...fonts.bold },
+  loadingText: { color: colors.textMuted, ...typography.bodyStrong },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 13,
     textAlign: 'center',
     paddingVertical: spacing.md,
+    ...typography.body,
   },
 });
