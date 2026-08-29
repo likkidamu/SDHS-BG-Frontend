@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SelectedEnrollmentProvider } from './src/features/enrollment/SelectedEnrollmentContext';
+import ProfileCompletionGate from './src/features/account/ProfileCompletionGate';
 import { colors } from './src/theme';
 
 // Screens
@@ -149,9 +150,11 @@ export default function App() {
   return (
     <AuthProvider>
       <SelectedEnrollmentProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
+        <ProfileCompletionGate>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </ProfileCompletionGate>
       </SelectedEnrollmentProvider>
     </AuthProvider>
   );
