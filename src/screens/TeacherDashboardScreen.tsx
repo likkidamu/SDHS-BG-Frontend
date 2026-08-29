@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -54,7 +54,10 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
   const [bookings, setBookings] = useState<TeacherGradingBooking[]>([]);
   const [gradesList, setGradesList] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
+  const [selectedChapter, setSelectedChapter] = useState('');
   const [searchText, setSearchText] = useState('');
+  const selectedDateRef = useRef('');
+  const selectedChapterRef = useRef('');
 
   // Track edits per booking id
   const [edits, setEdits] = useState<Record<number, BookingEdits>>({});
@@ -81,10 +84,27 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
         (latest, date) => date > latest ? date : latest,
         '',
       );
+      const nextChapters = nextBookings.reduce<string[]>((chapters, booking) => {
+        if (booking.chapterNumber !== undefined) {
+          const chapter = String(booking.chapterNumber);
+          if (!chapters.includes(chapter)) chapters.push(chapter);
+        }
+        return chapters;
+      }, []);
+      const retainedDate = nextDates.includes(selectedDateRef.current)
+        ? selectedDateRef.current
+        : latestDate;
+      const retainedChapter = retainedDate === selectedDateRef.current
+        && nextChapters.includes(selectedChapterRef.current)
+        ? selectedChapterRef.current
+        : '';
 
       setBookings(nextBookings);
       setGradesList(data.gradesList || []);
-      setSelectedDate((current) => current && nextDates.includes(current) ? current : latestDate);
+      setSelectedDate(retainedDate);
+      setSelectedChapter(retainedChapter);
+      selectedDateRef.current = retainedDate;
+      selectedChapterRef.current = retainedChapter;
 
       // Initialize edits from server data
       const initialEdits: Record<number, BookingEdits> = {};
@@ -131,19 +151,37 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     [bookings, selectedDate],
   );
 
+  const availableChapters = useMemo(() => {
+    const chapters = new Map<string, string>();
+    bookings.forEach((booking) => {
+      if (booking.chapterNumber !== undefined) {
+        const chapter = String(booking.chapterNumber);
+        if (!chapters.has(chapter)) chapters.set(chapter, chapterLabel(booking));
+      }
+    });
+    return [...chapters.entries()];
+  }, [bookings]);
+
+  const chapterBookings = useMemo(
+    () => selectedChapter
+      ? dateBookings.filter((booking) => String(booking.chapterNumber) === selectedChapter)
+      : dateBookings,
+    [dateBookings, selectedChapter],
+  );
+
   // Filtered bookings retain the ordering returned by the backend.
   const filteredBookings = useMemo(() => {
-    if (!searchText.trim()) return dateBookings;
+    if (!searchText.trim()) return chapterBookings;
     const q = searchText.trim().toLowerCase();
-    return dateBookings.filter(
+    return chapterBookings.filter(
       (b) => b.studentName.toLowerCase().includes(q)
         || b.studentVolunteerId.toLowerCase().includes(q),
     );
-  }, [dateBookings, searchText]);
+  }, [chapterBookings, searchText]);
 
   // Stats
-  const totalBookings = dateBookings.length;
-  const gradedCount = dateBookings.filter(
+  const totalBookings = chapterBookings.length;
+  const gradedCount = chapterBookings.filter(
     (b) => b.memorizationGrade && b.memorizationGrade.trim() !== ''
   ).length;
   const pendingCount = totalBookings - gradedCount;
@@ -486,7 +524,10 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
                   <TouchableOpacity
                     key={date}
                     style={[styles.dateOption, selectedDate === date && styles.dateOptionSelected]}
-                    onPress={() => setSelectedDate(date)}
+                    onPress={() => {
+                      selectedDateRef.current = date;
+                      setSelectedDate(date);
+                    }}
                   >
                     <Text style={[
                       styles.dateOptionText,
@@ -499,6 +540,45 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
               </View>
             </ScrollView>
           )}
+        </View>
+
+        <View style={styles.dateFilter}>
+          <Text style={styles.dateFilterLabel}>Chapter</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.dateOptions}>
+              <TouchableOpacity
+                style={[styles.dateOption, selectedChapter === '' && styles.dateOptionSelected]}
+                onPress={() => {
+                  selectedChapterRef.current = '';
+                  setSelectedChapter('');
+                }}
+              >
+                <Text style={[
+                  styles.dateOptionText,
+                  selectedChapter === '' && styles.dateOptionTextSelected,
+                ]}>
+                  All Chapters
+                </Text>
+              </TouchableOpacity>
+              {availableChapters.map(([chapter, label]) => (
+                <TouchableOpacity
+                  key={chapter}
+                  style={[styles.dateOption, selectedChapter === chapter && styles.dateOptionSelected]}
+                  onPress={() => {
+                    selectedChapterRef.current = chapter;
+                    setSelectedChapter(chapter);
+                  }}
+                >
+                  <Text style={[
+                    styles.dateOptionText,
+                    selectedChapter === chapter && styles.dateOptionTextSelected,
+                  ]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
         </View>
 
         {/* Search bar */}
@@ -525,7 +605,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             <Text style={styles.emptyText}>
               {searchText.trim()
                 ? 'No bookings match your search.'
-                : selectedDate
+                : selectedChapter
+                  ? 'No bookings found for the selected date and chapter.'
+                  : selectedDate
                   ? 'No bookings found for the selected date.'
                   : 'No bookings assigned to you yet.'}
             </Text>
