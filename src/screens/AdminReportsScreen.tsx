@@ -1,432 +1,190 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { TopNavbar, Footer } from '../components';
-import { colors, fonts, borderRadius, shadows } from '../theme';
-import api from '../services/api';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-// ---- Types ----
-interface Student {
-  volunteerId: string;
-  name: string;
-  groupId: string | null;
-  groupName: string | null;
-  trackType: string | null;
-  status: string;
-}
-
-interface Group {
-  groupId: string;
-  groupName: string | null;
-  status: string;
-  studentCount: number; // derived on frontend
-}
+import { AlertBox, ContentCard, Footer, StatCard, TopNavbar } from '../components';
+import type { AttendanceConfigurationGroup } from '../features/admin/enrollments/models';
+import type { AdminReportsData } from '../features/admin/reports/models';
+import { getAdminReports, getAdminReportsError } from '../features/admin/reports/service';
+import type { AdminVolunteer } from '../features/admin/volunteers/models';
+import { borderRadius, colors, fonts, spacing } from '../theme';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
-// ---- Sub-components ----
-function SectionCountCard({ count, label, color, onPress, active }: {
-  count: number; label: string; color?: string; onPress?: () => void; active?: boolean;
-}) {
-  const Wrapper = onPress ? TouchableOpacity : View;
-  return (
-    <Wrapper
-      style={[cc.card, active && { borderColor: color, borderWidth: 2 }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Text style={[cc.count, color ? { color } : {}]}>{count}</Text>
-      <Text style={cc.label}>{label}</Text>
-      {onPress ? <Text style={[cc.tap, active && { color: color ?? colors.primary }]}>
-        {active ? '✓ filtered' : 'tap to filter ↓'}
-      </Text> : null}
-    </Wrapper>
-  );
+function countStudents(students: AdminVolunteer[], groupId: string, trackType?: string): number {
+  return students.filter(
+    (student) => student.groupId === groupId
+      && (!trackType || student.trackType === trackType),
+  ).length;
 }
 
-const cc = StyleSheet.create({
-  card: {
-    flex: 1, backgroundColor: colors.white, borderRadius: borderRadius.lg,
-    padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight,
-    ...shadows.card,
-  },
-  count: { fontSize: 32, ...fonts.extraBold, color: colors.navy },
-  label: { fontSize: 12, ...fonts.semiBold, color: colors.textMuted, marginTop: 4, textAlign: 'center' },
-  tap: { fontSize: 10, ...fonts.regular, color: colors.primary, marginTop: 6 },
-});
-
-function GroupRow({ g, onPress }: { g: Group; onPress: () => void }) {
-  const isActive = g.status?.toUpperCase() === 'ACTIVE';
+function GroupReportCard({
+  group,
+  students,
+  onPress,
+}: {
+  group: AttendanceConfigurationGroup;
+  students: AdminVolunteer[];
+  onPress: () => void;
+}) {
   return (
-    <TouchableOpacity style={gr.row} onPress={onPress} activeOpacity={0.7}>
-      <View style={gr.info}>
-        <Text style={gr.name} numberOfLines={2}>{g.groupName ?? g.groupId}</Text>
+    <TouchableOpacity style={styles.groupCard} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.groupHeader}>
+        <View style={styles.groupIdentity}>
+          <Text style={styles.groupName}>{group.groupName ?? `Group ${group.groupId}`}</Text>
+          <Text style={styles.groupMeta}>{group.groupId} · {group.status}</Text>
+        </View>
+        <Text style={styles.groupArrow}>›</Text>
       </View>
-      <View style={[gr.statusDot, { backgroundColor: isActive ? colors.successText : colors.textMuted }]} />
-      <View style={gr.badge}>
-        <Text style={gr.badgeText}>{g.studentCount} student{g.studentCount !== 1 ? 's' : ''}</Text>
+      <View style={styles.groupMetrics}>
+        <View style={styles.groupMetric}>
+          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId)}</Text>
+          <Text style={styles.groupMetricLabel}>Students</Text>
+        </View>
+        <View style={styles.groupMetric}>
+          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId, 'MEM')}</Text>
+          <Text style={styles.groupMetricLabel}>MEM</Text>
+        </View>
+        <View style={styles.groupMetric}>
+          <Text style={styles.groupMetricValue}>{countStudents(students, group.groupId, 'FLUENT')}</Text>
+          <Text style={styles.groupMetricLabel}>FLUENT</Text>
+        </View>
       </View>
-      <Text style={gr.arrow}>›</Text>
     </TouchableOpacity>
   );
 }
 
-const gr = StyleSheet.create({
-  row: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white,
-    paddingVertical: 11, paddingHorizontal: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
-  },
-  info: { flex: 1 },
-  name: { fontSize: 14, ...fonts.semiBold, color: colors.textDark, flexShrink: 1 },
-  id: { fontSize: 11, ...fonts.regular, color: colors.textMuted, marginTop: 1 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
-  badge: { backgroundColor: colors.blueBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  badgeText: { fontSize: 12, ...fonts.semiBold, color: colors.blue },
-  arrow: { fontSize: 20, color: colors.textMuted, marginLeft: 8 },
-});
-
-function StudentRow({ s }: { s: Student }) {
-  const track = s.trackType?.toUpperCase();
-  return (
-    <View style={sr.row}>
-      <View style={sr.info}>
-        <Text style={sr.name}>{s.name}</Text>
-        <Text style={sr.sub}>{s.volunteerId}{s.groupName ? ` · ${s.groupName}` : ''}</Text>
-      </View>
-      {track ? (
-        <View style={[sr.pill, { backgroundColor: track === 'MEM' ? colors.blueBg : colors.purpleBg }]}>
-          <Text style={[sr.pillText, { color: track === 'MEM' ? colors.blue : colors.purple }]}>{track}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-const sr = StyleSheet.create({
-  row: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white,
-    paddingVertical: 10, paddingHorizontal: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
-  },
-  info: { flex: 1 },
-  name: { fontSize: 14, ...fonts.semiBold, color: colors.textDark },
-  sub: { fontSize: 11, ...fonts.regular, color: colors.textMuted, marginTop: 1 },
-  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  pillText: { fontSize: 10, ...fonts.bold },
-});
-
-function SectionHeader({ title }: { title: string }) {
-  return <Text style={sh.text}>{title}</Text>;
-}
-
-const sh = StyleSheet.create({
-  text: {
-    fontSize: 11, ...fonts.semiBold, color: colors.textMuted,
-    letterSpacing: 1, textTransform: 'uppercase',
-    marginTop: 20, marginBottom: 10,
-  },
-});
-
-// ---- Track filter dropdown ----
-type TrackFilter = null | 'MEM' | 'FLUENT';
-
-const FILTER_OPTIONS: { value: TrackFilter; label: string; color: string }[] = [
-  { value: null,     label: 'All Students',  color: colors.textDark },
-  { value: 'MEM',    label: 'Memorization',  color: colors.blue },
-  { value: 'FLUENT', label: 'Fluent',        color: colors.purple },
-];
-
-function TrackFilterDropdown({ value, onChange }: { value: TrackFilter; onChange: (v: TrackFilter) => void }) {
-  const [open, setOpen] = useState(false);
-  const active = FILTER_OPTIONS.find(o => o.value === value) ?? FILTER_OPTIONS[0];
-
-  return (
-    <View>
-      <TouchableOpacity style={dd.trigger} onPress={() => setOpen(true)} activeOpacity={0.8}>
-        <View style={[dd.dot, { backgroundColor: active.color }]} />
-        <Text style={[dd.triggerText, { color: active.color }]}>{active.label}</Text>
-        <Text style={dd.chevron}>▾</Text>
-      </TouchableOpacity>
-
-      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={dd.backdrop} activeOpacity={1} onPress={() => setOpen(false)}>
-          <View style={dd.menu}>
-            <Text style={dd.menuTitle}>Filter by track</Text>
-            {FILTER_OPTIONS.map(opt => {
-              const selected = opt.value === value;
-              return (
-                <TouchableOpacity
-                  key={String(opt.value)}
-                  style={[dd.option, selected && dd.optionActive]}
-                  onPress={() => { onChange(opt.value); setOpen(false); }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[dd.dot, { backgroundColor: opt.color }]} />
-                  <Text style={[dd.optionText, { color: opt.color }]}>{opt.label}</Text>
-                  {selected && <Text style={[dd.check, { color: opt.color }]}>✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-}
-
-const dd = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, gap: 6,
-    ...shadows.card,
-  },
-  triggerText: { fontSize: 12, ...fonts.semiBold },
-  chevron: { fontSize: 10, color: colors.textMuted, marginLeft: 2 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  backdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  menu: {
-    backgroundColor: colors.white, borderRadius: borderRadius.lg,
-    paddingVertical: 8, width: 220,
-    borderWidth: 1, borderColor: colors.borderLight, ...shadows.card,
-  },
-  menuTitle: {
-    fontSize: 10, ...fonts.semiBold, color: colors.textMuted,
-    letterSpacing: 1, textTransform: 'uppercase',
-    paddingHorizontal: 16, paddingBottom: 8,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight, marginBottom: 4,
-  },
-  option: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  optionActive: { backgroundColor: colors.bg },
-  optionText: { flex: 1, fontSize: 14, ...fonts.semiBold },
-  check: { fontSize: 14, ...fonts.bold },
-});
-
-// ---- Students Tab ----
-function StudentsTab({
-  groups, students, navigation,
-  onStudentsSectionLayout, onScrollToStudents,
-}: {
-  groups: Group[];
-  students: Student[];
-  navigation: any;
-  onStudentsSectionLayout: (y: number) => void;
-  onScrollToStudents: () => void;
-}) {
-  const [trackFilter, setTrackFilter] = useState<null | 'MEM' | 'FLUENT'>(null);
-
-  const activeStudents = students.filter(s => s.status?.toUpperCase() === 'ACTIVE');
-  const memStudents    = activeStudents.filter(s => s.trackType?.toUpperCase() === 'MEM');
-  const fluentStudents = activeStudents.filter(s => s.trackType?.toUpperCase() === 'FLUENT');
-
-  const visibleStudents = trackFilter === 'MEM'
-    ? memStudents
-    : trackFilter === 'FLUENT'
-    ? fluentStudents
-    : activeStudents;
-
-  const sectionTitle = trackFilter === 'MEM'
-    ? `Memorization (${memStudents.length})`
-    : trackFilter === 'FLUENT'
-    ? `Fluent (${fluentStudents.length})`
-    : `Active Students (${activeStudents.length})`;
-
-  const handleFilterPress = (filter: 'MEM' | 'FLUENT') => {
-    setTrackFilter(filter);
-    onScrollToStudents();
-  };
-
-  return (
-    <>
-      {/* Row 1: Groups | Active Students */}
-      <View style={styles.countRow}>
-        <SectionCountCard count={groups.length} label="Total Groups" color={colors.navy} />
-        <View style={{ width: 12 }} />
-        <SectionCountCard
-          count={activeStudents.length}
-          label="Active Students"
-          color={colors.primary}
-          onPress={() => { setTrackFilter(null); onScrollToStudents(); }}
-        />
-      </View>
-
-      {/* Row 2: MEM | FLUENT */}
-      <View style={styles.countRow}>
-        <SectionCountCard
-          count={memStudents.length}
-          label="Memorization"
-          color={colors.blue}
-          active={trackFilter === 'MEM'}
-          onPress={() => handleFilterPress('MEM')}
-        />
-        <View style={{ width: 12 }} />
-        <SectionCountCard
-          count={fluentStudents.length}
-          label="Fluent"
-          color={colors.purple}
-          active={trackFilter === 'FLUENT'}
-          onPress={() => handleFilterPress('FLUENT')}
-        />
-      </View>
-
-      {/* Groups list */}
-      <SectionHeader title="Groups" />
-      {groups.length === 0 ? (
-        <Text style={styles.emptyText}>No groups found.</Text>
-      ) : (
-        <View style={styles.tableContainer}>
-          {groups.map(g => (
-            <GroupRow
-              key={g.groupId}
-              g={g}
-              onPress={() => navigation.navigate('AdminGroupDetail', { groupId: g.groupId, groupName: g.groupName })}
-            />
-          ))}
-        </View>
-      )}
-
-      {/* Filtered students list */}
-      <View onLayout={e => onStudentsSectionLayout(e.nativeEvent.layout.y)}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={sh.text}>{sectionTitle}</Text>
-          <TrackFilterDropdown
-            value={trackFilter}
-            onChange={v => { setTrackFilter(v); onScrollToStudents(); }}
-          />
-        </View>
-        {visibleStudents.length === 0 ? (
-          <Text style={styles.emptyText}>No students found.</Text>
-        ) : (
-          <View style={styles.tableContainer}>
-            {visibleStudents.map(s => <StudentRow key={s.volunteerId} s={s} />)}
-          </View>
-        )}
-      </View>
-    </>
-  );
-}
-
-// ---- Main screen ----
 export default function AdminReportsScreen({ navigation }: Props) {
-  const [activeTab, setActiveTab] = useState<'teachers' | 'students'>('teachers');
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-  const studentsY = useRef(0);
+  const [data, setData] = useState<AdminReportsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (refresh = false) => {
+    refresh ? setRefreshing(true) : setLoading(true);
+    setError('');
     try {
-      // Fetch both in parallel
-      const [groupsRes, studentsRes] = await Promise.all([
-        api.get('/admin/attendance-config'),
-        api.get('/admin/volunteers?enrollmentType=S'),
-      ]);
-
-      const rawStudents: Student[] = studentsRes.data.volunteers ?? [];
-
-      // Count active students per group on the frontend
-      const countByGroup = new Map<string, number>();
-      for (const s of rawStudents) {
-        if (s.groupId && s.status?.toUpperCase() === 'ACTIVE') {
-          countByGroup.set(s.groupId, (countByGroup.get(s.groupId) ?? 0) + 1);
-        }
-      }
-
-      const rawGroups: Group[] = (groupsRes.data.groups ?? []).map((g: any) => ({
-        groupId: g.groupId,
-        groupName: g.groupName,
-        status: g.status,
-        studentCount: countByGroup.get(g.groupId) ?? 0,
-      }));
-
-      setGroups(rawGroups);
-      setStudents(rawStudents);
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? e?.message ?? 'Failed to load data');
+      setData(await getAdminReports());
+    } catch (requestError: any) {
+      setError(getAdminReportsError(requestError, 'Failed to load reports.'));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'students') loadData();
-  }, [activeTab]);
+  useEffect(() => { void load(); }, [load]);
+
+  const metrics = useMemo(() => {
+    const students = data?.volunteers.volunteers ?? [];
+    return {
+      activeStudents: students.filter((student) => student.status === 'ACTIVE').length,
+      memorizationStudents: students.filter((student) => student.trackType === 'MEM').length,
+      fluentStudents: students.filter((student) => student.trackType === 'FLUENT').length,
+      activeGroups: data?.config.groups.filter((group) => group.status === 'ACTIVE').length ?? 0,
+    };
+  }, [data]);
 
   return (
     <View style={styles.page}>
       <TopNavbar
-        title="Reports"
+        title="Reports & Analytics"
         actions={[{ label: 'Back', onPress: () => navigation.goBack() }]}
       />
-
-      {/* Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'teachers' && styles.tabActive]}
-          onPress={() => setActiveTab('teachers')}
-        >
-          <Text style={[styles.tabText, activeTab === 'teachers' && styles.tabTextActive]}>
-            👨‍🏫  Teachers
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'students' && styles.tabActive]}
-          onPress={() => setActiveTab('students')}
-        >
-          <Text style={[styles.tabText, activeTab === 'students' && styles.tabTextActive]}>
-            👨‍🎓  Students
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
-        {activeTab === 'teachers' && (
-          <View style={styles.placeholderCard}>
-            <Text style={styles.placeholderIcon}>📊</Text>
-            <Text style={styles.placeholderTitle}>Teachers Report</Text>
-            <Text style={styles.placeholderSubtitle}>Coming soon</Text>
-          </View>
-        )}
-
-        {activeTab === 'students' && loading && (
-          <View style={styles.center}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void load(true)}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingState}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading…</Text>
+            <Text style={styles.loadingText}>Loading reports...</Text>
           </View>
-        )}
+        ) : null}
 
-        {activeTab === 'students' && !loading && error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={loadData} style={styles.retryBtn}>
+        {!loading && error ? (
+          <View style={styles.errorState}>
+            <AlertBox type="error" message={error} />
+            <TouchableOpacity style={styles.retryButton} onPress={() => void load()}>
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {activeTab === 'students' && !loading && !error && (
-          <StudentsTab
-            groups={groups}
-            students={students}
-            navigation={navigation}
-            onStudentsSectionLayout={y => { studentsY.current = y; }}
-            onScrollToStudents={() => scrollRef.current?.scrollTo({ y: studentsY.current, animated: true })}
-          />
-        )}
+        {!loading && data ? (
+          <>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Learning Overview</Text>
+              <Text style={styles.sectionDescription}>Current student and configured-group coverage.</Text>
+            </View>
+            <View style={styles.statGrid}>
+              <StatCard value={data.volunteers.total} label="Total Students" iconLabel="👥" iconBg={colors.blueBg} iconColor={colors.blue} />
+              <StatCard value={metrics.activeStudents} label="Active Students" iconLabel="✓" iconBg={colors.greenBg} iconColor={colors.green} />
+              <StatCard value={data.config.groups.length} label="Configured Groups" iconLabel="G" iconBg={colors.orangeBg} iconColor={colors.primary} />
+              <StatCard value={metrics.activeGroups} label="Active Groups" iconLabel="●" iconBg={colors.purpleBg} iconColor={colors.purple} />
+            </View>
 
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Volunteer Statistics</Text>
+              <Text style={styles.sectionDescription}>Student distribution by learning track.</Text>
+            </View>
+            <View style={styles.statGrid}>
+              <StatCard value={metrics.memorizationStudents} label="Memorization" iconLabel="M" iconBg={colors.blueBg} iconColor={colors.blue} />
+              <StatCard value={metrics.fluentStudents} label="Fluent Reading" iconLabel="F" iconBg={colors.purpleBg} iconColor={colors.purple} />
+            </View>
+
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Report Navigation</Text>
+              <Text style={styles.sectionDescription}>Open the report views currently available.</Text>
+            </View>
+            <ContentCard title="Group Reports" rightLabel={`${data.config.groups.length} Groups`}>
+              {data.config.groups.length === 0 ? (
+                <Text style={styles.emptyText}>No configured groups are available for reporting.</Text>
+              ) : (
+                <View style={styles.groupList}>
+                  {data.config.groups.map((group) => (
+                    <GroupReportCard
+                      key={group.groupId}
+                      group={group}
+                      students={data.volunteers.volunteers}
+                      onPress={() => navigation.navigate('AdminGroupDetail', {
+                        groupId: group.groupId,
+                        groupName: group.groupName,
+                      })}
+                    />
+                  ))}
+                </View>
+              )}
+            </ContentCard>
+
+            <ContentCard title="Volunteer Analytics" rightLabel="Individual Report">
+              <Text style={styles.analyticsTitle}>Volunteer learning and examination analytics</Text>
+              <Text style={styles.analyticsDescription}>
+                Select a volunteer from Manage Volunteers to review bookings, grading, slokas, and assigned teachers.
+              </Text>
+              <TouchableOpacity
+                style={styles.analyticsButton}
+                onPress={() => navigation.navigate('AdminVolunteers')}
+              >
+                <Text style={styles.analyticsButtonText}>Select Volunteer</Text>
+              </TouchableOpacity>
+            </ContentCard>
+          </>
+        ) : null}
         <Footer />
       </ScrollView>
     </View>
@@ -435,38 +193,48 @@ export default function AdminReportsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
-  tabBar: {
-    flexDirection: 'row', backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
-    ...shadows.card,
+  content: { padding: spacing.md, gap: spacing.md },
+  loadingState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
+  loadingText: { color: colors.textMuted, fontSize: 14, ...fonts.medium },
+  errorState: { alignItems: 'center', gap: spacing.sm },
+  retryButton: {
+    backgroundColor: colors.navy,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 3, borderBottomColor: colors.primary },
-  tabText: { fontSize: 15, ...fonts.semiBold, color: colors.textMuted },
-  tabTextActive: { color: colors.primary },
-  content: { padding: 16, paddingBottom: 32 },
-  countRow: { flexDirection: 'row', marginBottom: 12 },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 4 },
-  tableContainer: {
-    borderRadius: 8, overflow: 'hidden',
-    borderWidth: 1, borderColor: colors.borderLight,
-    marginBottom: 4,
+  retryText: { color: colors.white, fontSize: 13, ...fonts.bold },
+  sectionHeading: { gap: spacing.xs, marginTop: spacing.xs },
+  sectionTitle: { color: colors.navy, fontSize: 18, ...fonts.bold },
+  sectionDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  groupList: { gap: spacing.sm },
+  groupCard: {
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    backgroundColor: colors.white,
   },
-  emptyText: { fontSize: 13, ...fonts.regular, color: colors.textMuted, marginBottom: 8 },
-  placeholderCard: {
-    backgroundColor: '#fff', borderRadius: borderRadius.xxl,
-    padding: 48, alignItems: 'center', ...shadows.card,
+  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  groupIdentity: { flex: 1 },
+  groupName: { color: colors.navy, fontSize: 14, ...fonts.bold },
+  groupMeta: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
+  groupArrow: { color: colors.textMuted, fontSize: 24 },
+  groupMetrics: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  groupMetric: { flex: 1, alignItems: 'center' },
+  groupMetricValue: { color: colors.textDark, fontSize: 18, ...fonts.extraBold },
+  groupMetricLabel: { color: colors.textMuted, fontSize: 10, marginTop: 2, ...fonts.semiBold },
+  emptyText: { color: colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: spacing.md },
+  analyticsTitle: { color: colors.textDark, fontSize: 14, ...fonts.bold },
+  analyticsDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
+  analyticsButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.navy,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
   },
-  placeholderIcon: { fontSize: 48, marginBottom: 12 },
-  placeholderTitle: { fontSize: 18, ...fonts.bold, color: colors.textDark, marginBottom: 6 },
-  placeholderSubtitle: { fontSize: 14, ...fonts.regular, color: colors.textMuted },
-  center: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { marginTop: 12, fontSize: 14, ...fonts.regular, color: colors.textMuted },
-  errorCard: {
-    backgroundColor: colors.errorBg, borderRadius: borderRadius.md,
-    padding: 16, borderWidth: 1, borderColor: colors.errorBorder, alignItems: 'center',
-  },
-  errorText: { fontSize: 14, ...fonts.regular, color: colors.errorText, textAlign: 'center' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: colors.errorText, borderRadius: 8 },
-  retryText: { fontSize: 13, ...fonts.semiBold, color: colors.white },
+  analyticsButtonText: { color: colors.white, fontSize: 13, ...fonts.bold },
 });
