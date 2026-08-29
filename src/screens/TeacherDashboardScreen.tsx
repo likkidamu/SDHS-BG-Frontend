@@ -53,6 +53,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
   const [error, setError] = useState('');
   const [bookings, setBookings] = useState<TeacherGradingBooking[]>([]);
   const [gradesList, setGradesList] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState('');
   const [searchText, setSearchText] = useState('');
 
   // Track edits per booking id
@@ -71,8 +72,19 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     try {
       setError('');
       const data = await getTeacherGradingDashboard();
-      setBookings(data.bookings || []);
+      const nextBookings = data.bookings || [];
+      const nextDates = nextBookings.reduce<string[]>((dates, booking) => {
+        if (booking.date && !dates.includes(booking.date)) dates.push(booking.date);
+        return dates;
+      }, []);
+      const latestDate = nextDates.reduce(
+        (latest, date) => date > latest ? date : latest,
+        '',
+      );
+
+      setBookings(nextBookings);
       setGradesList(data.gradesList || []);
+      setSelectedDate((current) => current && nextDates.includes(current) ? current : latestDate);
 
       // Initialize edits from server data
       const initialEdits: Record<number, BookingEdits> = {};
@@ -106,19 +118,32 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
     setRefreshing(false);
   }, [fetchDashboard]);
 
-  // Filtered bookings
+  const availableDates = useMemo(
+    () => bookings.reduce<string[]>((dates, booking) => {
+      if (booking.date && !dates.includes(booking.date)) dates.push(booking.date);
+      return dates;
+    }, []),
+    [bookings],
+  );
+
+  const dateBookings = useMemo(
+    () => bookings.filter((booking) => booking.date === selectedDate),
+    [bookings, selectedDate],
+  );
+
+  // Filtered bookings retain the ordering returned by the backend.
   const filteredBookings = useMemo(() => {
-    if (!searchText.trim()) return bookings;
+    if (!searchText.trim()) return dateBookings;
     const q = searchText.trim().toLowerCase();
-    return bookings.filter(
+    return dateBookings.filter(
       (b) => b.studentName.toLowerCase().includes(q)
         || b.studentVolunteerId.toLowerCase().includes(q),
     );
-  }, [bookings, searchText]);
+  }, [dateBookings, searchText]);
 
   // Stats
-  const totalBookings = bookings.length;
-  const gradedCount = bookings.filter(
+  const totalBookings = dateBookings.length;
+  const gradedCount = dateBookings.filter(
     (b) => b.memorizationGrade && b.memorizationGrade.trim() !== ''
   ).length;
   const pendingCount = totalBookings - gradedCount;
@@ -450,6 +475,32 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           </View>
         </View>
 
+        <View style={styles.dateFilter}>
+          <Text style={styles.dateFilterLabel}>Exam Date</Text>
+          {availableDates.length === 0 ? (
+            <Text style={styles.dateFilterEmpty}>No exam dates available</Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.dateOptions}>
+                {availableDates.map((date) => (
+                  <TouchableOpacity
+                    key={date}
+                    style={[styles.dateOption, selectedDate === date && styles.dateOptionSelected]}
+                    onPress={() => setSelectedDate(date)}
+                  >
+                    <Text style={[
+                      styles.dateOptionText,
+                      selectedDate === date && styles.dateOptionTextSelected,
+                    ]}>
+                      {date}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+        </View>
+
         {/* Search bar */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -474,7 +525,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             <Text style={styles.emptyText}>
               {searchText.trim()
                 ? 'No bookings match your search.'
-                : 'No bookings assigned to you yet.'}
+                : selectedDate
+                  ? 'No bookings found for the selected date.'
+                  : 'No bookings assigned to you yet.'}
             </Text>
           </ContentCard>
         ) : (
@@ -565,6 +618,47 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
+  },
+
+  // Date filter
+  dateFilter: {
+    gap: spacing.sm,
+  },
+  dateFilterLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    ...fonts.semiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dateFilterEmpty: {
+    fontSize: 13,
+    color: colors.textMuted,
+    ...fonts.regular,
+  },
+  dateOptions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dateOption: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  dateOptionSelected: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navy,
+  },
+  dateOptionText: {
+    fontSize: 13,
+    color: colors.textDark,
+    ...fonts.semiBold,
+  },
+  dateOptionTextSelected: {
+    color: colors.white,
   },
 
   // Search
