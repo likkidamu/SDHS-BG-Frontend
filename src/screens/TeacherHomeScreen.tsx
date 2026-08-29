@@ -113,6 +113,11 @@ export default function TeacherHomeScreen({ navigation }: Props) {
       iconBg: colors.blueBg, iconColor: colors.blue,
       onPress: () => navigation.navigate('TeacherDashboard'),
     },
+    {
+      title: 'Account Settings', description: 'Review and update your contact information', iconLabel: '⚙️',
+      iconBg: colors.tealBg, iconColor: colors.teal,
+      onPress: () => navigation.navigate('AccountSettings'),
+    },
   ], [navigation]);
 
   return (
@@ -128,7 +133,7 @@ export default function TeacherHomeScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} colors={[colors.primary]} tintColor={colors.primary} />}
       >
         <WelcomeCard greeting="Welcome back" name={user?.name || ''} badges={[{ label: user?.volunteerId || '' }]} />
-        <ActionGrid actions={actions} columns={3} />
+        <ActionGrid actions={actions} columns={4} />
 
         {loading ? <ActivityIndicator size="large" color={colors.primary} /> : null}
         {!loading && error ? (

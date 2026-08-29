@@ -119,6 +119,11 @@ export default function StudentHomeScreen({ navigation }: Props) {
         iconBg: colors.purpleBg, iconColor: colors.purple,
         onPress: () => navigation.navigate('MyLearning'),
       },
+      {
+        title: 'Account Settings', description: 'Review and update your contact information', iconLabel: '⚙️',
+        iconBg: colors.tealBg, iconColor: colors.teal,
+        onPress: () => navigation.navigate('AccountSettings'),
+      },
     ];
   }, [navigation, supportsExams]);
 

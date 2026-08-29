@@ -114,6 +114,10 @@ export default function AdminHomeScreen({ navigation }: Props) {
       title: 'Reports', description: 'Teachers & students reports', iconLabel: '📋',
       iconBg: colors.purple, iconColor: colors.white, onPress: () => navigation.navigate('AdminReports'),
     },
+    {
+      title: 'Account Settings', description: 'Review and update your contact information', iconLabel: '⚙️',
+      iconBg: colors.teal, iconColor: colors.white, onPress: () => navigation.navigate('AccountSettings'),
+    },
   ], [navigation]);
 
   return (

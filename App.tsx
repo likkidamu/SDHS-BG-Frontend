@@ -29,6 +29,7 @@ import AdminTeachersDashboardScreen from './src/screens/AdminTeachersDashboardSc
 import AdminAttendanceConfigScreen from './src/screens/AdminAttendanceConfigScreen';
 import AdminReportsScreen from './src/screens/AdminReportsScreen';
 import AdminGroupDetailScreen from './src/screens/AdminGroupDetailScreen';
+import AccountSettingsScreen from './src/screens/AccountSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -67,6 +68,7 @@ function AppNavigator() {
         <Stack.Screen name="AdminAttendanceConfig" component={AdminAttendanceConfigScreen} />
         <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
         <Stack.Screen name="AdminGroupDetail" component={AdminGroupDetailScreen} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     );
@@ -79,6 +81,7 @@ function AppNavigator() {
         <Stack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
         <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
         <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     );
@@ -92,6 +95,7 @@ function AppNavigator() {
         <Stack.Screen name="StudentSlots" component={StudentSlotsScreen} />
         <Stack.Screen name="StudentGrades" component={StudentGradesScreen} />
         <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     );
