@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import { getAccountProfile, updateAccountContact } from '../features/account/ser
 import { validateAccountContact } from '../features/account/validation';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
+import { PRIVACY_POLICY_URL } from '../constants/urls';
 
 type Props = SharedScreenProps<'AccountSettings'>;
 
@@ -191,6 +193,22 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                 </>
               )}
             </ContentCard>
+
+            <ContentCard title="Privacy">
+              <Text style={styles.privacyText}>
+                Review how the SDHS Bhagavad Gita Learning Platform collects, uses, and protects information.
+              </Text>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
+                    setError('Unable to open the Privacy Policy. Please try again.');
+                  });
+                }}
+              >
+                <Text style={styles.secondaryButtonText}>View Privacy Policy</Text>
+              </TouchableOpacity>
+            </ContentCard>
           </>
         ) : null}
         <Footer />
@@ -251,5 +269,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   secondaryButtonText: { color: colors.textDark, fontSize: 13, ...fonts.bold },
+  privacyText: { color: colors.textMuted, fontSize: 13, lineHeight: 20 },
   buttonDisabled: { opacity: 0.65 },
 });
