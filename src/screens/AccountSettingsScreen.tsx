@@ -18,7 +18,7 @@ import { getAccountProfile, updateAccountContact } from '../features/account/ser
 import { validateAccountContact } from '../features/account/validation';
 import { borderRadius, colors, fonts, spacing } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
-import { PRIVACY_POLICY_URL } from '../constants/urls';
+import { DELETE_ACCOUNT_URL, PRIVACY_POLICY_URL } from '../constants/urls';
 
 type Props = SharedScreenProps<'AccountSettings'>;
 
@@ -207,6 +207,24 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                 }}
               >
                 <Text style={styles.secondaryButtonText}>View Privacy Policy</Text>
+              </TouchableOpacity>
+            </ContentCard>
+
+            <ContentCard title="Delete Account">
+              <Text style={styles.privacyText}>
+                Learn how to request permanent deletion of your SDHS account.
+              </Text>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                accessibilityRole="link"
+                accessibilityLabel="View Account Deletion Policy in browser"
+                onPress={() => {
+                  void Linking.openURL(DELETE_ACCOUNT_URL).catch(() => {
+                    setError('Unable to open the Account Deletion Policy. Please try again.');
+                  });
+                }}
+              >
+                <Text style={styles.secondaryButtonText}>View Account Deletion Policy</Text>
               </TouchableOpacity>
             </ContentCard>
           </>
