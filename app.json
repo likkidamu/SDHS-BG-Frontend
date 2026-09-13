@@ -22,7 +22,7 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "Allow SDHS BG Program to connect to the local development server."
+        "NSLocalNetworkUsageDescription": "Allow SDHS Learning Portal to connect to the local development server."
       }
     },
     "android": {

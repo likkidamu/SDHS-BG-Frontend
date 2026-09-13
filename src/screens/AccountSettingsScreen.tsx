@@ -196,7 +196,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
 
             <ContentCard title="Privacy">
               <Text style={styles.privacyText}>
-                Review how the SDHS Bhagavad Gita Learning Platform collects, uses, and protects information.
+                Review how the SDHS Learning Portal collects, uses, and protects information.
               </Text>
               <TouchableOpacity
                 style={styles.secondaryButton}

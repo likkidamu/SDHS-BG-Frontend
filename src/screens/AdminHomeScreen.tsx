@@ -119,7 +119,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
     <ImageBackground source={bgAdmin} style={styles.page} resizeMode="cover" imageStyle={styles.bgImage}>
       <View style={styles.overlay}>
         <TopNavbar
-          title="SDHS BG Admin"
+          title="SDHS Learning Portal Admin"
           actions={[
             { label: 'Switch User', onPress: logout },
             { label: 'Logout', onPress: logout, variant: 'logout' },

@@ -38,7 +38,7 @@ export default function LoginScreen() {
     >
       {/* Top Bar */}
       <View style={styles.topBar}>
-        <Text style={styles.topBarText}>SDHS Bhagavad Gita Memorization</Text>
+        <Text style={styles.topBarText}>SDHS Learning Portal</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.hero} keyboardShouldPersistTaps="handled">
