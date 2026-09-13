@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { borderRadius, colors, shadows, spacing, typography } from '../theme';
 
 type NavAction = {
@@ -16,15 +17,19 @@ type Props = {
 };
 
 export default function TopNavbar({ title, actions = [] }: Props) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + spacing.smd }]} accessibilityRole="header">
       <StatusBar barStyle="light-content" backgroundColor={colors.navy} />
       <View style={styles.inner}>
         <Text style={styles.brand} numberOfLines={2}>{title}</Text>
         <View style={styles.actions}>
           {actions.map((action, i) => (
             <Pressable
-              key={i}
+              key={`${action.label}-${i}`}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              accessibilityHint={action.label === 'Back' ? 'Returns to the previous screen' : action.label === 'Logout' ? 'Signs out of the application' : undefined}
               style={({ pressed }) => [
                 styles.navBtn,
                 action.variant === 'logout' && styles.navBtnLogout,
@@ -45,7 +50,6 @@ export default function TopNavbar({ title, actions = [] }: Props) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.navy,
-    paddingTop: 48,
     paddingBottom: spacing.smd,
     ...shadows.navbar,
   },

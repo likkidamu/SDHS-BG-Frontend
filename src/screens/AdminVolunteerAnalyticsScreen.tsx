@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking,
 } from 'react-native';
 import { TopNavbar } from '../components';
 import { colors, fonts, spacing, borderRadius, shadows } from '../theme';
@@ -93,8 +93,8 @@ export default function AdminVolunteerAnalyticsScreen({ navigation, route }: Pro
             </View>
           </View>
           <View style={styles.profileMeta}>
-            {data.volunteer.phoneNumber ? <Text style={styles.metaItem}>📱 {data.volunteer.phoneNumber}</Text> : null}
-            {data.volunteer.email ? <Text style={styles.metaItem}>✉️ {data.volunteer.email}</Text> : null}
+            {data.volunteer.phoneNumber ? <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Call ${data.volunteer.name} at ${data.volunteer.phoneNumber}`} onPress={() => void Linking.openURL(`tel:${data.volunteer.phoneNumber}`)}><Text style={styles.metaItem}>📱 {data.volunteer.phoneNumber}</Text></TouchableOpacity> : null}
+            {data.volunteer.email ? <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Email ${data.volunteer.name} at ${data.volunteer.email}`} onPress={() => void Linking.openURL(`mailto:${data.volunteer.email}`)}><Text style={styles.metaItem}>✉️ {data.volunteer.email}</Text></TouchableOpacity> : null}
             {data.volunteer.groupId ? <Text style={styles.metaItem}>👥 Group: {data.volunteer.groupId}</Text> : null}
             <Text style={styles.metaItem}>🏷 {data.volunteer.trackType} • {data.volunteer.enrollmentType}</Text>
           </View>

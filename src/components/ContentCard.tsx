@@ -20,7 +20,7 @@ export default function ContentCard({
   return (
     <View style={styles.container}>
       <View style={[styles.header, { backgroundColor: headerBg }]}>
-        <Text style={styles.headerText}>{title}</Text>
+        <Text style={styles.headerText} accessibilityRole="header">{title}</Text>
         {rightLabel && (
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{rightLabel}</Text>

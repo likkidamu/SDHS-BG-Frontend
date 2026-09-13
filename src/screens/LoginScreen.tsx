@@ -4,10 +4,12 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { colors, shadows, borderRadius, fonts } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AlertBox, Footer, IconGlyph } from '../components';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const { login } = useAuth();
   const [volunteerId, setVolunteerId] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +39,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Top Bar */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]} accessibilityRole="header">
         <Text style={styles.topBarText}>SDHS Learning Portal</Text>
       </View>
 
@@ -56,6 +58,7 @@ export default function LoginScreen() {
           {error ? <AlertBox type="error" message={error} /> : null}
 
           <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Volunteer ID</Text>
             <TextInput
               style={styles.input}
               placeholder="Enter your Volunteer ID"
@@ -64,10 +67,13 @@ export default function LoginScreen() {
               onChangeText={setVolunteerId}
               autoCapitalize="characters"
               autoCorrect={false}
+              accessibilityLabel="Volunteer ID"
+              accessibilityHint="Enter your SDHS Volunteer ID"
             />
           </View>
 
           <View style={styles.inputGroup}>
+            <Text style={styles.fieldLabel}>Password</Text>
             <TextInput
               style={styles.input}
               placeholder="Enter your password"
@@ -75,10 +81,15 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              accessibilityLabel="Password"
+              accessibilityHint="Enter your account password"
             />
             <TouchableOpacity
               style={styles.eyeBtn}
               onPress={() => setShowPassword(!showPassword)}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              accessibilityState={{ expanded: showPassword }}
             >
               <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
             </TouchableOpacity>
@@ -88,6 +99,9 @@ export default function LoginScreen() {
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             onPress={handleLogin}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Sign In"
+            accessibilityState={{ disabled: loading, busy: loading }}
           >
             <Text style={styles.submitText}>
               {loading ? 'Signing in...' : 'Sign In'}
@@ -107,7 +121,7 @@ export default function LoginScreen() {
           <View style={styles.contactBody}>
             <Text style={styles.contactTitle}>Want to join SDHS Volunteers?</Text>
             <Text style={styles.contactText}>
-              Reach out to learn more about volunteering opportunities with Sri Datta Human Services.
+              Reach out to learn more about volunteering opportunities with Sri Datta Humane Services.
             </Text>
           </View>
         </View>
@@ -125,7 +139,6 @@ const styles = StyleSheet.create({
   },
   topBar: {
     backgroundColor: colors.navy,
-    paddingTop: 48,
     paddingBottom: 14,
     alignItems: 'center',
     borderBottomWidth: 3,
@@ -188,6 +201,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     position: 'relative',
   },
+  fieldLabel: {
+    color: colors.textBody,
+    fontSize: 13,
+    marginBottom: 6,
+    ...fonts.semiBold,
+  },
   input: {
     width: '100%',
     borderWidth: 2,
@@ -203,7 +222,7 @@ const styles = StyleSheet.create({
   eyeBtn: {
     position: 'absolute',
     right: 16,
-    top: 0,
+    top: 27,
     bottom: 0,
     justifyContent: 'center',
   },

@@ -153,6 +153,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                     editable={!saving}
                     placeholder="Email address"
                     placeholderTextColor={colors.textMuted}
+                    accessibilityLabel="Email"
                   />
                   <Text style={styles.fieldLabel}>Phone Number</Text>
                   <TextInput
@@ -163,12 +164,16 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                     editable={!saving}
                     placeholder="Phone number"
                     placeholderTextColor={colors.textMuted}
+                    accessibilityLabel="Phone Number"
                   />
                   <View style={styles.buttonRow}>
                     <TouchableOpacity
                       style={styles.secondaryButton}
                       onPress={cancelEdit}
                       disabled={saving}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel"
+                      accessibilityState={{ disabled: saving }}
                     >
                       <Text style={styles.secondaryButtonText}>Cancel</Text>
                     </TouchableOpacity>
@@ -176,6 +181,9 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                       style={[styles.primaryButton, saving && styles.buttonDisabled]}
                       onPress={() => void save()}
                       disabled={saving}
+                      accessibilityRole="button"
+                      accessibilityLabel="Save contact information"
+                      accessibilityState={{ disabled: saving, busy: saving }}
                     >
                       {saving
                         ? <ActivityIndicator size="small" color={colors.white} />
@@ -187,7 +195,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
                 <>
                   <DetailRow label="Email" value={profile.email} />
                   <DetailRow label="Phone Number" value={profile.phoneNumber} />
-                  <TouchableOpacity style={styles.primaryButton} onPress={beginEdit}>
+                  <TouchableOpacity style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Edit Contact Information" onPress={beginEdit}>
                     <Text style={styles.primaryButtonText}>Edit Contact Information</Text>
                   </TouchableOpacity>
                 </>
@@ -200,6 +208,8 @@ export default function AccountSettingsScreen({ navigation }: Props) {
               </Text>
               <TouchableOpacity
                 style={styles.secondaryButton}
+                accessibilityRole="link"
+                accessibilityLabel="View Privacy Policy in browser"
                 onPress={() => {
                   void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
                     setError('Unable to open the Privacy Policy. Please try again.');

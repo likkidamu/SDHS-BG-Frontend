@@ -81,12 +81,12 @@ export default function AdminSyllabusScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <TopNavbar title="Syllabus Config" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+      <TopNavbar title="Syllabus Management" actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
 
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Session Date</Text>
-        <TextInput style={styles.dateInput} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" onSubmitEditing={load} returnKeyType="done" />
-        <TouchableOpacity style={styles.loadBtn} onPress={load}>
+        <TextInput style={styles.dateInput} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" onSubmitEditing={load} returnKeyType="done" accessibilityLabel="Session Date" accessibilityHint="Enter a date in year month day format" />
+        <TouchableOpacity style={styles.loadBtn} accessibilityRole="button" accessibilityLabel="Load syllabus" onPress={load}>
           <Text style={styles.loadBtnText}>Load</Text>
         </TouchableOpacity>
       </View>
@@ -105,7 +105,7 @@ export default function AdminSyllabusScreen({ navigation }: Props) {
                   <Text style={styles.chapterName}>Ch {c.chapterNumber}: {c.chapterName}</Text>
                   <Text style={styles.chapterMeta}>{c.totalSlokas} total slokas</Text>
                 </View>
-                <Switch value={c.enabled} onValueChange={() => toggleChapter(c.id)} trackColor={{ true: colors.teal }} thumbColor={c.enabled ? colors.white : '#ccc'} />
+                <Switch value={c.enabled} onValueChange={() => toggleChapter(c.id)} trackColor={{ true: colors.teal }} thumbColor={c.enabled ? colors.white : '#ccc'} accessibilityRole="switch" accessibilityLabel={`Enable Chapter ${c.chapterNumber}`} accessibilityState={{ checked: c.enabled }} />
               </View>
               {c.enabled && (
                 <View style={styles.slokaRow}>
@@ -114,11 +114,12 @@ export default function AdminSyllabusScreen({ navigation }: Props) {
                     placeholder="e.g. 5,10,15,20"
                     value={c.allowedSlokas}
                     onChangeText={v => setAllowed(c.id, v)}
+                    accessibilityLabel={`Allowed sloka counts for Chapter ${c.chapterNumber}`}
                   />
-                  <TouchableOpacity style={styles.autoBtn} onPress={() => autoFill(c.id, c.totalSlokas)}>
+                  <TouchableOpacity style={styles.autoBtn} accessibilityRole="button" accessibilityLabel={`Auto-fill Chapter ${c.chapterNumber} in increments of five`} onPress={() => autoFill(c.id, c.totalSlokas)}>
                     <Text style={styles.autoBtnText}>5s</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.clearBtn} onPress={() => setAllowed(c.id, '')}>
+                  <TouchableOpacity style={styles.clearBtn} accessibilityRole="button" accessibilityLabel={`Clear allowed slokas for Chapter ${c.chapterNumber}`} onPress={() => setAllowed(c.id, '')}>
                     <Text style={styles.clearBtnText}>✕</Text>
                   </TouchableOpacity>
                 </View>

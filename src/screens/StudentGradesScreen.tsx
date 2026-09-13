@@ -132,6 +132,9 @@ export default function StudentGradesScreen({ navigation }: Props) {
             ([value, optionLabel]) => (
               <TouchableOpacity
                 key={value || 'all'}
+                accessibilityRole="radio"
+                accessibilityLabel={optionLabel}
+                accessibilityState={{ checked: selected === value }}
                 style={[styles.filterChip, selected === value && styles.filterChipSelected]}
                 onPress={() => {
                   select(value);
@@ -185,6 +188,9 @@ export default function StudentGradesScreen({ navigation }: Props) {
         </View>
         <TouchableOpacity
           style={styles.detailsButton}
+          accessibilityRole="button"
+          accessibilityLabel={`${expanded ? 'Hide' : 'Show'} details for ${grade.formattedDate ?? grade.date ?? 'exam'}`}
+          accessibilityState={{ expanded }}
           onPress={() => setExpandedGrade(expanded ? null : grade.id)}
         >
           <Text style={[styles.detailsButtonText, grade.teacherComment && styles.detailsAvailable]}>
@@ -226,7 +232,7 @@ export default function StudentGradesScreen({ navigation }: Props) {
         <Text style={styles.loadingText}>Loading grades...</Text>
       </View> : error ? <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => void fetchGrades()}>
+        <TouchableOpacity style={styles.retryButton} accessibilityRole="button" accessibilityLabel="Retry" onPress={() => void fetchGrades()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View> : data ? <ContentCard title="Exam Results"
@@ -238,7 +244,7 @@ export default function StudentGradesScreen({ navigation }: Props) {
             {renderFilter('Exam date', dates.map((date) => [date, date]), selectedDate, setSelectedDate)}
             {renderFilter('Chapter', chapters, selectedChapter, setSelectedChapter)}
             {selectedDate !== '' || selectedChapter !== '' ?
-              <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
+              <TouchableOpacity style={styles.clearButton} accessibilityRole="button" accessibilityLabel="Clear filters" onPress={clearFilters}>
                 <Text style={styles.clearButtonText}>Clear filters</Text>
               </TouchableOpacity> : null}
           </View>

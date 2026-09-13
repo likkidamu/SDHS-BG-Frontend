@@ -119,7 +119,7 @@ export default function ProfileCompletionGate({ children }: { children: React.Re
       >
         <View style={styles.backdrop}>
           <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-            <View style={styles.dialog}>
+            <View style={styles.dialog} accessibilityViewIsModal>
               <Text style={styles.title}>Welcome to SDHS Learning Portal</Text>
               <Text style={styles.description}>
                 Please complete your contact information so teachers and administrators can reach you regarding classes, attendance, exams, and important announcements.
@@ -136,6 +136,7 @@ export default function ProfileCompletionGate({ children }: { children: React.Re
                 editable={!saving}
                 placeholder="Email address"
                 placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Email"
               />
               <Text style={styles.fieldLabel}>Phone Number</Text>
               <TextInput
@@ -146,11 +147,15 @@ export default function ProfileCompletionGate({ children }: { children: React.Re
                 editable={!saving}
                 placeholder="Phone number"
                 placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Phone Number"
               />
               <TouchableOpacity
                 style={[styles.saveButton, saving && styles.buttonDisabled]}
                 onPress={() => void save()}
                 disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel="Save and Continue"
+                accessibilityState={{ disabled: saving, busy: saving }}
               >
                 {saving
                   ? <ActivityIndicator size="small" color={colors.white} />

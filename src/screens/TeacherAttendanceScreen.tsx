@@ -219,7 +219,7 @@ export default function TeacherAttendanceScreen({ navigation }: Props) {
   return (
     <View style={styles.page}>
       <TopNavbar
-        title="Record Attendance"
+        title="Teacher Attendance"
         actions={[
           { label: 'Back', onPress: () => navigation.goBack() },
           { label: 'Logout', onPress: logout, variant: 'logout' },

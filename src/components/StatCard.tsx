@@ -21,7 +21,7 @@ function StatCard({
   valueColor = colors.navy,
 }: Props) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessible accessibilityLabel={`${label}: ${value}`}>
       <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
         <IconGlyph glyph={iconLabel} size={19} color={iconColor} />
       </View>

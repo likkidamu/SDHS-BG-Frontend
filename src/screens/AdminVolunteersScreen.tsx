@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text,
+  ActivityIndicator, FlatList, Linking, Modal, RefreshControl, ScrollView, StyleSheet, Switch, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
 import type { AdminScreenProps } from '../navigation/types';
@@ -43,7 +43,7 @@ function SingleSelect({ label, options, selected, onChange }: {
   const [open, setOpen] = useState(false);
   const displayLabel = options.find((option) => option.key === selected)?.label ?? 'All';
   return <>
-    <TouchableOpacity style={styles.selectTrigger} onPress={() => setOpen(true)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.selectTrigger} onPress={() => setOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`${label}: ${displayLabel}`} accessibilityHint="Opens selection options" accessibilityState={{ expanded: open }}>
       <Text style={styles.selectTriggerText} numberOfLines={1}>{displayLabel}</Text><Text style={styles.selectArrow}>▾</Text>
     </TouchableOpacity>
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -51,7 +51,7 @@ function SingleSelect({ label, options, selected, onChange }: {
         <View style={styles.selectSheet} onStartShouldSetResponder={() => true}>
           <Text style={styles.selectTitle}>{label}</Text>
           {[{ key: '', label: 'All' }, ...options].map((option) => (
-            <TouchableOpacity key={option.key} style={styles.selectRow} onPress={() => { onChange(option.key); setOpen(false); }}>
+            <TouchableOpacity key={option.key} style={styles.selectRow} accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: selected === option.key }} onPress={() => { onChange(option.key); setOpen(false); }}>
               <View style={[styles.radio, selected === option.key && styles.radioSelected]}>{selected === option.key ? <View style={styles.radioDot} /> : null}</View>
               <Text style={styles.selectRowLabel}>{option.label}</Text>
             </TouchableOpacity>
@@ -68,7 +68,7 @@ function FormField({ label, value, error, onChangeText, keyboardType }: {
 }) {
   return <View style={styles.fieldRow}>
     <Text style={styles.fieldLabel}>{label}</Text>
-    <TextInput style={[styles.fieldInput, error ? styles.fieldInputError : null]} value={value} onChangeText={onChangeText} keyboardType={keyboardType} autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'} />
+    <TextInput style={[styles.fieldInput, error ? styles.fieldInputError : null]} value={value} onChangeText={onChangeText} keyboardType={keyboardType} autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'} accessibilityLabel={label} accessibilityState={{ disabled: false }} />
     {error ? <Text style={styles.fieldError}>{error}</Text> : null}
   </View>;
 }
@@ -89,11 +89,11 @@ const VolunteerCard = React.memo(function VolunteerCard({ volunteer, onManage, o
         </View>
         <StatusBadge status={volunteer.status} />
       </View>
-      {volunteer.phoneNumber || volunteer.email ? <View style={styles.contact}>{volunteer.phoneNumber ? <Text style={styles.contactText}>📞 {volunteer.phoneNumber}</Text> : null}{volunteer.email ? <Text style={styles.contactText}>✉ {volunteer.email}</Text> : null}</View> : null}
+      {volunteer.phoneNumber || volunteer.email ? <View style={styles.contact}>{volunteer.phoneNumber ? <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Call ${volunteer.name} at ${volunteer.phoneNumber}`} onPress={() => void Linking.openURL(`tel:${volunteer.phoneNumber}`)}><Text style={styles.contactText}>📞 {volunteer.phoneNumber}</Text></TouchableOpacity> : null}{volunteer.email ? <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Email ${volunteer.name} at ${volunteer.email}`} onPress={() => void Linking.openURL(`mailto:${volunteer.email}`)}><Text style={styles.contactText}>✉ {volunteer.email}</Text></TouchableOpacity> : null}</View> : null}
       {volunteer.statusReason ? <Text style={styles.reason}>Reason: {volunteer.statusReason}</Text> : null}
       <View style={styles.rowActions}>
-        <TouchableOpacity style={[styles.smallButton, styles.manageButton]} onPress={() => onManage(volunteer)}><Text style={styles.smallButtonText}>Manage</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.smallButton, styles.analyticsButton]} onPress={() => onAnalytics(volunteer.volunteerId)}><Text style={styles.smallButtonText}>Analytics</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.smallButton, styles.manageButton]} accessibilityRole="button" accessibilityLabel={`Manage ${volunteer.name}`} onPress={() => onManage(volunteer)}><Text style={styles.smallButtonText}>Manage</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.smallButton, styles.analyticsButton]} accessibilityRole="button" accessibilityLabel={`View analytics for ${volunteer.name}`} onPress={() => onAnalytics(volunteer.volunteerId)}><Text style={styles.smallButtonText}>Analytics</Text></TouchableOpacity>
       </View>
     </View>
   );
@@ -207,7 +207,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
   const reset = () => { setQuery({}); setApplied({}); };
 
   return <View style={styles.page}>
-    <TopNavbar title="Manage Volunteers" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+    <TopNavbar title="Manage Volunteers" actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
     <FlatList
       data={!loading && data ? volunteers : []}
       keyExtractor={volunteerKeyExtractor}
@@ -234,12 +234,12 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
 
       <View style={styles.filterCard}>
         <Text style={styles.cardTitle}>Search & Filters</Text>
-        <TextInput style={styles.searchInput} placeholder="Name or Volunteer ID" value={query.q ?? ''} onChangeText={(q) => setQuery((current) => ({ ...current, q }))} returnKeyType="search" onSubmitEditing={() => setApplied(query)} />
+        <TextInput style={styles.searchInput} placeholder="Name or Volunteer ID" value={query.q ?? ''} onChangeText={(q) => setQuery((current) => ({ ...current, q }))} returnKeyType="search" onSubmitEditing={() => setApplied(query)} accessibilityLabel="Search volunteers" accessibilityHint="Search by volunteer name or Volunteer ID" />
         <View style={styles.filterGrid}>
           <View style={styles.filterCell}><Text style={styles.filterLabel}>STATUS</Text><SingleSelect label="Status" options={STATUS_OPTIONS} selected={query.status ?? ''} onChange={(status) => setQuery((current) => ({ ...current, status }))} /></View>
           <View style={styles.filterCell}><Text style={styles.filterLabel}>TYPE</Text><SingleSelect label="Type" options={TYPE_OPTIONS} selected={query.enrollmentType ?? ''} onChange={(enrollmentType) => setQuery((current) => ({ ...current, enrollmentType }))} /></View>
           <View style={styles.filterCell}><Text style={styles.filterLabel}>TRACK</Text><SingleSelect label="Track" options={TRACK_OPTIONS} selected={query.trackType ?? ''} onChange={(trackType) => setQuery((current) => ({ ...current, trackType }))} /></View>
-          <View style={styles.filterCell}><Text style={styles.filterLabel}>GROUP</Text><TextInput style={styles.groupInput} value={query.groupId ?? ''} onChangeText={(groupId) => setQuery((current) => ({ ...current, groupId }))} /></View>
+          <View style={styles.filterCell}><Text style={styles.filterLabel}>GROUP</Text><TextInput style={styles.groupInput} value={query.groupId ?? ''} onChangeText={(groupId) => setQuery((current) => ({ ...current, groupId }))} accessibilityLabel="Group filter" /></View>
         </View>
         <View style={styles.filterActions}><TouchableOpacity style={[styles.actionButton, styles.searchButton]} onPress={() => setApplied({ ...query })}><Text style={styles.actionButtonText}>Search</Text></TouchableOpacity><TouchableOpacity style={[styles.actionButton, styles.resetButton]} onPress={reset}><Text style={styles.resetButtonText}>Reset</Text></TouchableOpacity></View>
       </View>
@@ -254,7 +254,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
     />
 
     <Modal visible={editModal} transparent animationType="slide" onRequestClose={closeModals}>
-      <View style={styles.modalOverlay}><View style={styles.modalBox}><ScrollView keyboardShouldPersistTaps="handled">
+      <View style={styles.modalOverlay}><View style={styles.modalBox} accessibilityViewIsModal><ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.modalTitle}>Manage Volunteer</Text><Text style={styles.modalName}>{selected?.name}</Text><Text style={styles.modalMeta}>{selected?.volunteerId} • {selected?.status}</Text>
         {modalError ? <AlertBox type="error" message={modalError} /> : null}
         <FormField label="Name" value={edit.name ?? ''} error={editErrors.name} onChangeText={(name) => setEdit((current) => ({ ...current, name }))} />
@@ -263,7 +263,7 @@ export default function AdminVolunteersScreen({ navigation }: Props) {
         <FormField label="Group" value={edit.groupId ?? ''} onChangeText={(groupId) => setEdit((current) => ({ ...current, groupId }))} />
         <Text style={styles.fieldLabel}>Enrollment Type</Text><View style={styles.segmentRow}>{TYPE_OPTIONS.map((option) => <TouchableOpacity key={option.key} style={[styles.segment, edit.enrollmentType === option.key && styles.segmentActive]} onPress={() => setEdit((current) => ({ ...current, enrollmentType: option.key }))}><Text style={[styles.segmentText, edit.enrollmentType === option.key && styles.segmentTextActive]}>{option.label}</Text></TouchableOpacity>)}</View>
         <Text style={styles.fieldLabel}>Track Type</Text><View style={styles.segmentRow}>{[{ key: '', label: 'None' }, ...TRACK_OPTIONS].map((option) => <TouchableOpacity key={option.key} style={[styles.segment, edit.trackType === option.key && styles.segmentActive]} onPress={() => setEdit((current) => ({ ...current, trackType: option.key }))}><Text style={[styles.segmentText, edit.trackType === option.key && styles.segmentTextActive]}>{option.label}</Text></TouchableOpacity>)}</View>
-        <Text style={styles.fieldLabel}>Slot Eligible</Text><View style={styles.switchRow}><Switch value={Boolean(edit.slotEligible)} onValueChange={(slotEligible) => setEdit((current) => ({ ...current, slotEligible }))} trackColor={{ false: colors.disabledBg, true: colors.successBg }} thumbColor={edit.slotEligible ? colors.successText : colors.textMuted} /><Text style={styles.switchLabel}>{edit.slotEligible ? 'Yes' : 'No'}</Text></View>
+        <Text style={styles.fieldLabel}>Slot Eligible</Text><View style={styles.switchRow}><Switch value={Boolean(edit.slotEligible)} onValueChange={(slotEligible) => setEdit((current) => ({ ...current, slotEligible }))} trackColor={{ false: colors.disabledBg, true: colors.successBg }} thumbColor={edit.slotEligible ? colors.successText : colors.textMuted} accessibilityRole="switch" accessibilityLabel="Slot Eligible" accessibilityState={{ checked: Boolean(edit.slotEligible) }} /><Text style={styles.switchLabel}>{edit.slotEligible ? 'Yes' : 'No'}</Text></View>
         <View style={styles.dangerZone}><Text style={styles.dangerTitle}>Actions</Text>{currentAdministrator ? <AlertBox type="info" message="You cannot perform this action on your own administrator account." /> : null}{selected?.status === 'ACTIVE' ? <><FormField label="Drop reason" value={dropReason} onChangeText={setDropReason} /><TouchableOpacity style={[styles.actionButton, styles.dropButton]} disabled={Boolean(processingAction) || currentAdministrator} onPress={() => { setModalError(''); setEditModal(false); setConfirmation('drop'); }}><Text style={styles.actionButtonText}>Drop Volunteer</Text></TouchableOpacity></> : <TouchableOpacity style={[styles.actionButton, styles.searchButton]} disabled={Boolean(processingAction) || currentAdministrator} onPress={() => { setModalError(''); setEditModal(false); setConfirmation('reactivate'); }}><Text style={styles.actionButtonText}>Reactivate Volunteer</Text></TouchableOpacity>}</View>
         <View style={styles.modalActions}><TouchableOpacity style={[styles.modalButton, styles.resetButton]} onPress={closeModals} disabled={Boolean(processingAction)}><Text style={styles.resetButtonText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={() => void act('edit')} disabled={Boolean(processingAction) || Object.keys(editErrors).length > 0}>{processingAction === 'edit' ? <ActivityIndicator size="small" color={colors.white} /> : <Text style={styles.actionButtonText}>Save Changes</Text>}</TouchableOpacity></View>
       </ScrollView></View></View>

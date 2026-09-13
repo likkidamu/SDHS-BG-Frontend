@@ -412,14 +412,14 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
   return (
     <View style={styles.page}>
       <TopNavbar
-        title="Student Slot Booking"
-        actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]}
+        title="Bulk Slot Booking"
+        actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]}
       />
 
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Date</Text>
-        <TextInput style={styles.dateInput} value={date} onChangeText={changeDate} placeholder="YYYY-MM-DD" returnKeyType="done" />
-        <TouchableOpacity style={styles.loadBtn} onPress={() => void load()}><Text style={styles.loadBtnText}>Load</Text></TouchableOpacity>
+        <TextInput style={styles.dateInput} value={date} onChangeText={changeDate} placeholder="YYYY-MM-DD" returnKeyType="done" accessibilityLabel="Booking date" accessibilityHint="Enter a date in year month day format" />
+        <TouchableOpacity style={styles.loadBtn} accessibilityRole="button" accessibilityLabel="Load bookings" onPress={() => void load()}><Text style={styles.loadBtnText}>Load</Text></TouchableOpacity>
       </View>
 
       {notice ? (
@@ -454,6 +454,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
               {(['MEMORIZATION', 'REVISION'] as TrackType[]).map(track => (
                 <TouchableOpacity
                   key={track}
+                  accessibilityRole="radio"
+                  accessibilityLabel={track === 'MEMORIZATION' ? 'Memorization' : 'Revision'}
+                  accessibilityState={{ checked: trackType === track }}
                   style={[styles.chip, trackType === track && styles.chipActive]}
                   onPress={() => changeTrack(track)}
                 >
@@ -487,6 +490,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                     {slots.map(s => (
                       <TouchableOpacity
                         key={s.id}
+                        accessibilityRole="radio"
+                        accessibilityLabel={s.name}
+                        accessibilityState={{ checked: editor.slotId === String(s.id) }}
                         style={[styles.chip, editor.slotId === String(s.id) && styles.chipActive]}
                         onPress={() => setEditor(current => ({ ...current, slotId: String(s.id) }))}
                       >
@@ -502,6 +508,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                     {chapters.map(c => (
                       <TouchableOpacity
                         key={c.id}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`Chapter ${c.chapterNumber}`}
+                        accessibilityState={{ checked: editor.chapterId === String(c.id) }}
                         style={[styles.chip, editor.chapterId === String(c.id) && styles.chipActive]}
                         onPress={() => onChapterSelect(String(c.id))}
                       >
@@ -542,6 +551,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
 
                 <TouchableOpacity
                   style={styles.secondChapterToggle}
+                  accessibilityRole="button"
+                  accessibilityLabel={editor.useSecondChapter ? 'Remove Second Chapter' : 'Add Second Chapter'}
+                  accessibilityState={{ expanded: editor.useSecondChapter }}
                   onPress={() => {
                     if (editor.useSecondChapter) {
                       slokaRequest2.current += 1;
@@ -605,7 +617,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                 ) : null}
             </View>
 
-            <TouchableOpacity style={styles.saveBtn} onPress={addToBatch}>
+            <TouchableOpacity style={styles.saveBtn} accessibilityRole="button" accessibilityLabel="Add to Batch" onPress={addToBatch}>
               <Text style={styles.saveBtnText}>Add to Batch</Text>
             </TouchableOpacity>
           </View>
@@ -628,7 +640,7 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                       <Text style={styles.bookingMeta}>Ch {chapter2?.chapterNumber ?? entry.chapterId2} — {trackType === 'REVISION' ? 'Whole Chapter' : `1–${entry.slokaCount2}`}</Text>
                     ) : null}
                   </View>
-                  <TouchableOpacity style={styles.delBtn} onPress={() => setStagedEntries(current => current.filter((_, itemIndex) => itemIndex !== index))}>
+                  <TouchableOpacity style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`Remove staged booking for ${entry.studentName}`} onPress={() => setStagedEntries(current => current.filter((_, itemIndex) => itemIndex !== index))}>
                     <Text style={styles.delBtnText}>✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -638,6 +650,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
               style={[styles.saveBtn, (saving || stagedEntries.length === 0) && styles.buttonDisabled]}
               onPress={() => void saveBatch()}
               disabled={saving || stagedEntries.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Save Bookings"
+              accessibilityState={{ disabled: saving || stagedEntries.length === 0, busy: saving }}
             >
               {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save Bookings</Text>}
             </TouchableOpacity>
@@ -659,6 +674,9 @@ export default function AdminBulkBookingScreen({ navigation }: Props) {
                   style={[styles.delBtn, deletingBookingId !== null && styles.buttonDisabled]}
                   onPress={() => deleteBooking(b)}
                   disabled={deletingBookingId !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete booking for ${b.studentName}`}
+                  accessibilityState={{ disabled: deletingBookingId !== null, busy: deletingBookingId === b.id }}
                 >
                   {deletingBookingId === b.id
                     ? <ActivityIndicator size="small" color={colors.errorText} />

@@ -302,7 +302,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
     return (
       <View style={styles.page}>
         <TopNavbar
-          title="Book Test Slot"
+          title="Book Exam Slot"
           actions={[
             { label: 'Back', onPress: () => navigation.goBack() },
             { label: 'Logout', onPress: logout, variant: 'logout' },
@@ -319,7 +319,7 @@ export default function StudentSlotsScreen({ navigation }: Props) {
   return (
     <View style={styles.page}>
       <TopNavbar
-        title="Book Test Slot"
+        title="Book Exam Slot"
         actions={[
           { label: 'Back', onPress: () => navigation.goBack() },
           { label: 'Logout', onPress: logout, variant: 'logout' },

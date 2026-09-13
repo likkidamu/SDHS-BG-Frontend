@@ -27,7 +27,7 @@ export default function AsyncState({
 }: Props) {
   if (loading) {
     return (
-      <View style={[styles.state, styles.loadingState, fill && styles.fill]}>
+      <View style={[styles.state, styles.loadingState, fill && styles.fill]} accessible accessibilityLabel={loadingMessage} accessibilityLiveRegion="polite">
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{loadingMessage}</Text>
       </View>
@@ -47,7 +47,7 @@ export default function AsyncState({
   }
 
   if (empty) {
-    return <Text style={styles.emptyText}>{emptyMessage}</Text>;
+    return <Text style={styles.emptyText} accessibilityRole="summary">{emptyMessage}</Text>;
   }
 
   return null;

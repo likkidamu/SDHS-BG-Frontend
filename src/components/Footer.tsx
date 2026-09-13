@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>
-        © 2025 <Text style={styles.highlight}>Sri Datta Human Services</Text> · SDHS Learning Portal
+        © 2026 Sri Datta Humane Services
       </Text>
     </View>
   );

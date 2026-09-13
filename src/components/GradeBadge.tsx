@@ -20,7 +20,7 @@ export default function GradeBadge({ grade }: Props) {
   const config = gradeConfig[value] || { bg: colors.surfaceMuted, color: colors.textMuted };
 
   return (
-    <View style={[styles.badge, { backgroundColor: config.bg }]}>
+    <View style={[styles.badge, { backgroundColor: config.bg }]} accessible accessibilityLabel={`Grade: ${value}`}>
       <Text style={[styles.text, { color: config.color }]}>{value}</Text>
     </View>
   );

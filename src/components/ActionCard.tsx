@@ -24,6 +24,10 @@ function ActionCard({
 }: Props) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={description}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [styles.container, pressed && !disabled && styles.pressed, disabled && styles.disabled]}
       onPress={onPress}
       disabled={disabled}

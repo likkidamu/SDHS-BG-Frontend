@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SelectedEnrollmentProvider } from './src/features/enrollment/SelectedEnrollmentContext';
 import ProfileCompletionGate from './src/features/account/ProfileCompletionGate';
@@ -49,7 +50,7 @@ function AppNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }} accessible accessibilityLabel="Loading SDHS Learning Portal" accessibilityLiveRegion="polite">
         <ActivityIndicator size="large" color={colors.navy} />
       </View>
     );
@@ -117,7 +118,7 @@ function AppNavigator() {
     <View style={styles.unsupportedRole}>
       <Text style={styles.unsupportedRoleTitle}>Unsupported account role</Text>
       <Text style={styles.unsupportedRoleText}>This account cannot access the mobile application.</Text>
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+      <TouchableOpacity style={styles.logoutButton} accessibilityRole="button" accessibilityLabel="Return to Login" onPress={logout}>
         <Text style={styles.logoutButtonText}>Return to Login</Text>
       </TouchableOpacity>
     </View>
@@ -157,14 +158,16 @@ const styles = StyleSheet.create({
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SelectedEnrollmentProvider>
-        <ProfileCompletionGate>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
-        </ProfileCompletionGate>
-      </SelectedEnrollmentProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <SelectedEnrollmentProvider>
+          <ProfileCompletionGate>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </ProfileCompletionGate>
+        </SelectedEnrollmentProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

@@ -78,7 +78,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
 
   const actions = useMemo(() => [
     {
-      title: 'Syllabus', description: 'Configure chapters & sloka ranges', iconLabel: '📖',
+      title: 'Syllabus Management', description: 'Configure chapters & sloka ranges', iconLabel: '📖',
       iconBg: colors.primary, iconColor: colors.white, onPress: () => navigation.navigate('AdminSyllabus'),
     },
     {
@@ -86,15 +86,15 @@ export default function AdminHomeScreen({ navigation }: Props) {
       iconBg: colors.navy, iconColor: colors.white, onPress: () => navigation.navigate('AdminTeacherAvailability'),
     },
     {
-      title: 'Student Slot Booking', description: 'Bulk book student exam slots', iconLabel: '👥',
+      title: 'Bulk Slot Booking', description: 'Bulk book student exam slots', iconLabel: '👥',
       iconBg: colors.primaryDark, iconColor: colors.white, onPress: () => navigation.navigate('AdminBulkBooking'),
     },
     {
-      title: 'Teachers Dashboard', description: "View all teachers' performance", iconLabel: '📊',
+      title: 'Teacher Dashboard', description: "View all teachers' performance", iconLabel: '📊',
       iconBg: colors.navyLight, iconColor: colors.white, onPress: () => navigation.navigate('AdminTeachersDashboard'),
     },
     {
-      title: 'New Enrollments', description: 'Review student enrollment requests', iconLabel: '🙋',
+      title: 'Enrollment Management', description: 'Review student enrollment requests', iconLabel: '🙋',
       iconBg: colors.teal, iconColor: colors.white, onPress: () => navigation.navigate('AdminEnrollments'),
     },
     {
@@ -102,7 +102,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
       iconBg: colors.maroon, iconColor: colors.white, onPress: () => navigation.navigate('AdminVolunteers'),
     },
     {
-      title: 'Attendance Config', description: 'Configure group attendance settings', iconLabel: '✅',
+      title: 'Attendance Configuration', description: 'Configure group attendance settings', iconLabel: '✅',
       iconBg: colors.gold, iconColor: colors.white, onPress: () => navigation.navigate('AdminAttendanceConfig'),
     },
     {
@@ -119,7 +119,7 @@ export default function AdminHomeScreen({ navigation }: Props) {
     <ImageBackground source={bgAdmin} style={styles.page} resizeMode="cover" imageStyle={styles.bgImage}>
       <View style={styles.overlay}>
         <TopNavbar
-          title="SDHS Learning Portal Admin"
+          title="Admin Dashboard"
           actions={[
             { label: 'Switch User', onPress: logout },
             { label: 'Logout', onPress: logout, variant: 'logout' },

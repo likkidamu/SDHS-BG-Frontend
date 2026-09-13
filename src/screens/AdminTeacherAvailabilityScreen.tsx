@@ -65,7 +65,7 @@ export default function AdminTeacherAvailabilityScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <TopNavbar title="Teacher Availability" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+      <TopNavbar title="Teacher Availability" actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
 
       <View style={styles.dateRow}>
         <Text style={styles.dateLabel}>Date</Text>

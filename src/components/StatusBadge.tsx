@@ -23,7 +23,7 @@ export default function StatusBadge({ status, label }: Props) {
   const normalized = status.trim().replaceAll('_', ' ').toUpperCase();
   const tone = STATUS_TONES[normalized] ?? STATUS_TONES.INACTIVE;
   return (
-    <View style={[styles.badge, { backgroundColor: tone.background, borderColor: tone.border }]}>
+    <View style={[styles.badge, { backgroundColor: tone.background, borderColor: tone.border }]} accessible accessibilityLabel={`Status: ${label ?? normalized}`}>
       <Text style={[styles.text, { color: tone.text }]}>{label ?? normalized}</Text>
     </View>
   );

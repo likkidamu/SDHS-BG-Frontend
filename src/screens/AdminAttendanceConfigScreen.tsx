@@ -59,7 +59,7 @@ export default function AdminAttendanceConfigScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <TopNavbar title="Attendance Config" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+      <TopNavbar title="Attendance Configuration" actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
 
       {success ? <View style={styles.successBanner}><Text style={styles.successText}>{success}</Text></View> : null}
       {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text></View> : null}

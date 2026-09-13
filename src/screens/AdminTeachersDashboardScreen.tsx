@@ -127,7 +127,7 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
 
   return (
     <View style={styles.page}>
-      <TopNavbar title="Teachers Dashboard" actions={[{ label: '← Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
+      <TopNavbar title="Teacher Dashboard" actions={[{ label: 'Back', onPress: () => navigation.goBack() }, { label: 'Logout', onPress: logout, variant: 'logout' }]} />
       <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} colors={[colors.primary]} tintColor={colors.primary} />}>
         <View style={styles.filterBar}>
           <View style={styles.filterRow}>
@@ -163,7 +163,7 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
                 <View style={styles.studentColumn}>
                   <Text style={styles.studentName}>{booking.studentName}</Text>
                   <Text style={styles.vid}>{booking.volunteerId}</Text>
-                  {booking.studentPhone ? <TouchableOpacity onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}><Text style={styles.phone}>{booking.studentPhone}</Text></TouchableOpacity> : null}
+                  {booking.studentPhone ? <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Call ${booking.studentName} at ${booking.studentPhone}`} onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}><Text style={styles.phone}>{booking.studentPhone}</Text></TouchableOpacity> : null}
                   <Text style={styles.vid}>{booking.slotName ?? 'No slot'}</Text>
                   <Text style={styles.chapter}>{chapterLabel(booking)}</Text>
                 </View>
@@ -181,7 +181,7 @@ export default function AdminTeachersDashboardScreen({ navigation }: Props) {
       </ScrollView>
 
       <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
-        <View style={styles.modalOverlay}><View style={styles.modalBox}>
+        <View style={styles.modalOverlay}><View style={styles.modalBox} accessibilityViewIsModal>
           <Text style={styles.modalTitle}>Edit Booking</Text><Text style={styles.modalSubtitle}>{selected?.studentName} • {selected?.slotName ?? 'No slot'}</Text>
           {notice?.type === 'error' ? <AlertBox type="error" message={notice.message} /> : null}
           <Text style={styles.fieldLabel}>Teacher</Text>

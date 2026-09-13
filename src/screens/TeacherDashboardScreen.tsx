@@ -315,7 +315,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             <Text style={styles.studentName}>{booking.studentName}</Text>
             <Text style={styles.studentId}>ID: {booking.studentVolunteerId}</Text>
             {booking.studentPhone ? (
-              <TouchableOpacity onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}>
+              <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Call ${booking.studentName} at ${booking.studentPhone}`} onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}>
                 <Text style={styles.studentPhone}>{booking.studentPhone}</Text>
               </TouchableOpacity>
             ) : null}
@@ -515,6 +515,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
                 {availableDates.map((date) => (
                   <TouchableOpacity
                     key={date}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Exam date ${date}`}
+                    accessibilityState={{ checked: selectedDate === date }}
                     style={[styles.dateOption, selectedDate === date && styles.dateOptionSelected]}
                     onPress={() => {
                       selectedDateRef.current = date;
@@ -539,6 +542,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.dateOptions}>
               <TouchableOpacity
+                accessibilityRole="radio"
+                accessibilityLabel="All Chapters"
+                accessibilityState={{ checked: selectedChapter === '' }}
                 style={[styles.dateOption, selectedChapter === '' && styles.dateOptionSelected]}
                 onPress={() => {
                   selectedChapterRef.current = '';
@@ -555,6 +561,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
               {availableChapters.map(([chapter, label]) => (
                 <TouchableOpacity
                   key={chapter}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityState={{ checked: selectedChapter === chapter }}
                   style={[styles.dateOption, selectedChapter === chapter && styles.dateOptionSelected]}
                   onPress={() => {
                     selectedChapterRef.current = chapter;
@@ -583,9 +592,11 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
             onChangeText={setSearchText}
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Search assigned exams"
+            accessibilityHint="Search by student name or Volunteer ID"
           />
           {searchText.length > 0 && (
-            <TouchableOpacity style={styles.clearSearch} onPress={() => setSearchText('')}>
+            <TouchableOpacity style={styles.clearSearch} accessibilityRole="button" accessibilityLabel="Clear grading search" onPress={() => setSearchText('')}>
               <Text style={styles.clearSearchText}>✕</Text>
             </TouchableOpacity>
           )}
@@ -621,7 +632,7 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           activeOpacity={1}
           onPress={() => setPickerVisible(false)}
         >
-          <View style={styles.modalContent}>
+          <View style={styles.modalContent} accessibilityViewIsModal>
             <Text style={styles.modalTitle}>
               {pickerField === 'memorizationGrade' ? 'Memorization Grade' : 'Pronunciation Grade'}
             </Text>
@@ -633,6 +644,9 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
                 return (
                   <TouchableOpacity
                     key={grade}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Grade ${grade}`}
+                    accessibilityState={{ checked: isSelected }}
                     style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
                     onPress={() => selectGrade(grade)}
                   >

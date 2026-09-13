@@ -59,17 +59,17 @@ function GroupSelector({ groups, selected, disabled, onChange }: {
   const [open, setOpen] = useState(false);
   const selectedGroup = groups.find((group) => group.groupId === selected);
   return <>
-    <TouchableOpacity style={[styles.groupSelector, disabled && styles.controlDisabled]} disabled={disabled} onPress={() => setOpen(true)}>
+    <TouchableOpacity style={[styles.groupSelector, disabled && styles.controlDisabled]} disabled={disabled} accessibilityRole="button" accessibilityLabel={`Configured Group: ${selectedGroup?.groupName ?? selectedGroup?.groupId ?? 'None selected'}`} accessibilityHint="Opens configured group options" accessibilityState={{ disabled, expanded: open }} onPress={() => setOpen(true)}>
       <Text style={[styles.groupSelectorText, !selectedGroup && styles.placeholderText]} numberOfLines={1}>{selectedGroup?.groupName ?? selectedGroup?.groupId ?? 'Select group'}</Text>
       <Text style={styles.groupSelectorArrow}>▾</Text>
     </TouchableOpacity>
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <TouchableOpacity style={styles.selectorOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
-        <View style={styles.selectorSheet} onStartShouldSetResponder={() => true}>
+        <View style={styles.selectorSheet} accessibilityViewIsModal onStartShouldSetResponder={() => true}>
           <Text style={styles.selectorTitle}>Select Group</Text>
           <ScrollView style={styles.selectorList}>
             {groups.length === 0 ? <Text style={styles.noGroupsText}>No configured groups are available.</Text> : groups.map((group) => (
-              <TouchableOpacity key={group.groupId} style={styles.selectorRow} onPress={() => { onChange(group.groupId); setOpen(false); }}>
+              <TouchableOpacity key={group.groupId} style={styles.selectorRow} accessibilityRole="radio" accessibilityLabel={group.groupName ?? group.groupId} accessibilityState={{ checked: selected === group.groupId }} onPress={() => { onChange(group.groupId); setOpen(false); }}>
                 <View style={[styles.radio, selected === group.groupId && styles.radioSelected]}>{selected === group.groupId ? <View style={styles.radioDot} /> : null}</View>
                 <View style={styles.groupIdentity}><Text style={styles.selectorRowTitle}>{group.groupName ?? group.groupId}</Text>{group.groupName ? <Text style={styles.selectorRowMeta}>{group.groupId}</Text> : null}</View>
               </TouchableOpacity>
@@ -211,7 +211,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
       <TopNavbar
         title="Enrollment Management"
         actions={[
-          { label: '← Back', onPress: () => navigation.goBack() },
+          { label: 'Back', onPress: () => navigation.goBack() },
           { label: 'Logout', onPress: logout, variant: 'logout' },
         ]}
       />
@@ -224,7 +224,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
       ) : error ? (
         <View style={styles.center}>
           <AlertBox type="error" message={error} />
-          <TouchableOpacity style={styles.retryButton} onPress={() => void load()}>
+          <TouchableOpacity style={styles.retryButton} accessibilityRole="button" accessibilityLabel="Retry" onPress={() => void load()}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -287,6 +287,9 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
                 <TouchableOpacity
                   style={[styles.slotToggle, draftFor(enrollment.enrollmentId).slotEligible && styles.slotToggleActive, working !== null && styles.controlDisabled]}
                   disabled={working !== null}
+                  accessibilityRole="switch"
+                  accessibilityLabel="Slot Eligible"
+                  accessibilityState={{ checked: draftFor(enrollment.enrollmentId).slotEligible, disabled: working !== null }}
                   onPress={() => updateDraft(enrollment.enrollmentId, 'slotEligible', !draftFor(enrollment.enrollmentId).slotEligible)}
                 >
                   <Text style={[styles.slotToggleText, draftFor(enrollment.enrollmentId).slotEligible && styles.slotToggleTextActive]}>{draftFor(enrollment.enrollmentId).slotEligible ? 'Yes' : 'No'}</Text>
@@ -299,6 +302,7 @@ export default function AdminEnrollmentsScreen({ navigation }: Props) {
                   maxLength={400}
                   onChangeText={(rejectionReason) => updateDraft(enrollment.enrollmentId, 'rejectionReason', rejectionReason)}
                   placeholder="Reason for rejection"
+                  accessibilityLabel="Rejection Reason, optional"
                 />
                 <Text style={styles.characterCount}>{draftFor(enrollment.enrollmentId).rejectionReason.length}/400</Text>
                 <View style={styles.actions}>

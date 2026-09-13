@@ -35,7 +35,7 @@ function BookingRow({ booking, recent = false }: { booking: TeacherGradingBookin
         <Text style={styles.listTitle}>{booking.studentName}</Text>
         {!recent ? <Text style={styles.listMeta}>{booking.studentVolunteerId}</Text> : null}
         {!recent && booking.studentPhone ? (
-          <TouchableOpacity onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}>
+          <TouchableOpacity accessibilityRole="link" accessibilityLabel={`Call ${booking.studentName} at ${booking.studentPhone}`} onPress={() => void Linking.openURL(`tel:${booking.studentPhone}`)}>
             <Text style={styles.phone}>{booking.studentPhone}</Text>
           </TouchableOpacity>
         ) : null}

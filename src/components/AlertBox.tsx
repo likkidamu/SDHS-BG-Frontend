@@ -19,7 +19,7 @@ const alertStyles: Record<AlertType, { bg: string; text: string; border: string 
 export default function AlertBox({ type, message }: Props) {
   const s = alertStyles[type];
   return (
-    <View style={[styles.container, { backgroundColor: s.bg, borderColor: s.border }]}>
+    <View style={[styles.container, { backgroundColor: s.bg, borderColor: s.border }]} accessibilityRole="alert" accessibilityLiveRegion="polite">
       <Text style={[styles.text, { color: s.text }]}>{message}</Text>
     </View>
   );
